@@ -19,3 +19,11 @@ body {
 .nuha-mirror a[href^="https://nuha.care"] {
   cursor: pointer;
 }
+
+.chat-markdown li > p {
+  margin-bottom: 0.25rem;
+}
+
+.chat-markdown li > p:last-child {
+  margin-bottom: 0;
+}

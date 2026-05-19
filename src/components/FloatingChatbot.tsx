@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useRef, useState } from "react";
+import { ChatMarkdown } from "@/components/ChatMarkdown";
 
 type ChatMessage = {
   id: string;
@@ -143,13 +144,17 @@ export function FloatingChatbot() {
               {messages.map((msg) => (
                 <article
                   key={msg.id}
-                  className={`max-w-[92%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+                  className={`rounded-2xl px-3 py-2 text-sm leading-relaxed ${
                     msg.role === "user"
-                      ? "ml-auto bg-[#014547] text-white"
-                      : "mr-auto border border-[#AAE053]/40 bg-white text-[#0B1D15]"
+                      ? "ml-auto max-w-[92%] bg-[#014547] text-white"
+                      : "mr-auto w-full max-w-full border border-[#AAE053]/40 bg-white text-[#0B1D15]"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  {msg.role === "assistant" ? (
+                    <ChatMarkdown content={msg.content} />
+                  ) : (
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  )}
                   {msg.role === "assistant" && msg.meta && (
                     <div className="mt-2 border-t border-[#F0F0F0] pt-2 text-[10px] text-[#717171]">
                       {typeof msg.meta.retrievalMs === "number" && (
