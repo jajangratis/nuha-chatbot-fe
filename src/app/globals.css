@@ -27,3 +27,96 @@ body {
 .chat-markdown li > p:last-child {
   margin-bottom: 0;
 }
+
+/* Nuha landing animations */
+.nuha-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nuha-reveal--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.nuha-hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.35;
+  animation: nuha-float 8s ease-in-out infinite;
+}
+
+.nuha-hero-orb--1 {
+  width: 280px;
+  height: 280px;
+  background: #07c5ba;
+  top: 10%;
+  right: 5%;
+}
+
+.nuha-hero-orb--2 {
+  width: 200px;
+  height: 200px;
+  background: #aae053;
+  bottom: 15%;
+  left: 10%;
+  animation-delay: -3s;
+}
+
+@keyframes nuha-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(12px, -16px) scale(1.05);
+  }
+}
+
+.nuha-pulse-dot {
+  animation: nuha-pulse 2s ease-in-out infinite;
+}
+
+@keyframes nuha-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.3);
+  }
+}
+
+.nuha-marquee-mask {
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+}
+
+.nuha-marquee-track {
+  width: max-content;
+  animation: nuha-marquee 35s linear infinite;
+}
+
+.nuha-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes nuha-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}

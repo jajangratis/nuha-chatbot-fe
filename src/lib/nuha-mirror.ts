@@ -52,26 +52,60 @@ function absolutizeAttributes(html: string): string {
   return result;
 }
 
+/** Hanya hapus script inline berbahaya; pertahankan bundle & __NEXT_DATA__ */
+function preserveNuhaScripts(html: string): string {
+  return html.replace(
+    /<script\b([^>]*)>([\s\S]*?)<\/script>/gi,
+    (tag, attrs: string) => {
+      if (/src\s*=\s*["']/i.test(attrs)) {
+        return tag.replace(
+          /src=["']([^"']+)["']/i,
+          (_, src: string) => `src="${absolutize(src)}"`,
+        );
+      }
+      if (/id=["']__NEXT_DATA__["']/i.test(attrs)) {
+        return tag;
+      }
+      if (/type=["']application\/json["']/i.test(attrs)) {
+        return tag;
+      }
+      return "";
+    },
+  );
+}
+
+function injectBaseTag(html: string): string {
+  const base = `<base href="${NUHA_ORIGIN}/">`;
+  if (/<base\s/i.test(html)) {
+    return html.replace(/<base[^>]*>/i, base);
+  }
+  return html.replace(/<head([^>]*)>/i, `<head$1>${base}`);
+}
+
 export type NuhaMirrorContent = {
   bodyHtml: string;
   styleLinks: string[];
 };
 
-export async function fetchNuhaMirror(path = "/"): Promise<NuhaMirrorContent> {
-  const url = `${NUHA_ORIGIN}${path === "/" ? "" : path}`;
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; NuhaCareClone/1.0)",
-      Accept: "text/html,application/xhtml+xml",
-    },
-    next: { revalidate: 300 },
-  });
+import { fetchNuhaCareHtml } from "@/lib/nuha-fetch";
 
-  if (!res.ok) {
-    throw new Error(`Gagal memuat halaman Nuha (${res.status})`);
+export async function fetchNuhaMirror(path = "/"): Promise<NuhaMirrorContent> {
+  const result = await fetchNuhaCareHtml(path, { retries: 3 });
+
+  if (!result.ok) {
+    throw new Error(`Gagal memuat halaman Nuha (${result.status || result.reason})`);
   }
 
-  return transformNuhaHtml(await res.text());
+  return transformNuhaHtml(result.html);
+}
+
+/** Dokumen HTML lengkap untuk iframe proxy — script & CSS asli tetap jalan */
+export function transformNuhaDocument(html: string): string {
+  let doc = html;
+  doc = preserveNuhaScripts(doc);
+  doc = absolutizeAttributes(doc);
+  doc = injectBaseTag(doc);
+  return doc;
 }
 
 export function transformNuhaHtml(html: string): NuhaMirrorContent {
@@ -89,7 +123,7 @@ export function transformNuhaHtml(html: string): NuhaMirrorContent {
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   let bodyHtml = bodyMatch?.[1] ?? html;
 
-  bodyHtml = bodyHtml.replace(/<script\b[\s\S]*?<\/script>/gi, "");
+  bodyHtml = preserveNuhaScripts(bodyHtml);
   bodyHtml = absolutizeAttributes(bodyHtml);
 
   return {
