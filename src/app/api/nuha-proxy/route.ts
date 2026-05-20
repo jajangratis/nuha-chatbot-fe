@@ -1,5 +1,8 @@
 import { fetchNuhaCareHtml, isBlockedNuhaResponse } from "@/lib/nuha-fetch";
-import { transformNuhaDocument } from "@/lib/nuha-mirror";
+import {
+  NUHA_PROXY_IFRAME_HEADERS,
+  transformNuhaDocument,
+} from "@/lib/nuha-mirror";
 
 function errorHtml(message: string, status?: number) {
   const detail = status ? ` (${status})` : "";
@@ -63,6 +66,7 @@ export async function GET(request: Request) {
       "Content-Type": "text/html; charset=utf-8",
       "X-Nuha-Proxy": "ok",
       "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+      ...NUHA_PROXY_IFRAME_HEADERS,
     },
   });
 }

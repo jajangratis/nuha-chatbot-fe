@@ -8,7 +8,7 @@ const BROWSER_HEADERS: Record<string, string> = {
   Accept:
     "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
   "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
-  "Accept-Encoding": "gzip, deflate, br",
+  "Accept-Encoding": "gzip, deflate",
   "Cache-Control": "no-cache",
   Pragma: "no-cache",
   "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',

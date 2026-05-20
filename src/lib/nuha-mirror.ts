@@ -1,4 +1,15 @@
+import { fetchNuhaCareHtml } from "@/lib/nuha-fetch";
+
 const NUHA_ORIGIN = "https://nuha.care";
+
+/** CSP / X-Frame dari nuha.care memblokir script & iframe di domain reverse proxy */
+function stripEmbedBlockers(html: string): string {
+  return html
+    .replace(/<meta[^>]*http-equiv=["']Content-Security-Policy["'][^>]*>/gi, "")
+    .replace(/<meta[^>]*http-equiv=["']X-Frame-Options["'][^>]*>/gi, "")
+    .replace(/<meta[^>]*http-equiv=["']Permissions-Policy["'][^>]*>/gi, "")
+    .replace(/<meta[^>]*name=["']referrer["'][^>]*content=["']origin["'][^>]*>/gi, "");
+}
 
 function absolutize(url: string): string {
   const trimmed = url.trim();
@@ -87,8 +98,6 @@ export type NuhaMirrorContent = {
   styleLinks: string[];
 };
 
-import { fetchNuhaCareHtml } from "@/lib/nuha-fetch";
-
 export async function fetchNuhaMirror(path = "/"): Promise<NuhaMirrorContent> {
   const result = await fetchNuhaCareHtml(path, { retries: 3 });
 
@@ -102,11 +111,21 @@ export async function fetchNuhaMirror(path = "/"): Promise<NuhaMirrorContent> {
 /** Dokumen HTML lengkap untuk iframe proxy — script & CSS asli tetap jalan */
 export function transformNuhaDocument(html: string): string {
   let doc = html;
+  doc = stripEmbedBlockers(doc);
   doc = preserveNuhaScripts(doc);
   doc = absolutizeAttributes(doc);
   doc = injectBaseTag(doc);
   return doc;
 }
+
+/** Header agar dokumen proxy bisa di-iframe & memuat script dari nuha.care */
+export const NUHA_PROXY_IFRAME_HEADERS: Record<string, string> = {
+  "Content-Security-Policy":
+    "default-src * 'unsafe-inline' 'unsafe-eval' data: blob: https: http:; script-src * 'unsafe-inline' 'unsafe-eval' https: http:; style-src * 'unsafe-inline' https: http:; img-src * data: blob: https: http:; font-src * data: https: http:; connect-src * https: http:; frame-ancestors *;",
+  "Cross-Origin-Embedder-Policy": "unsafe-none",
+  "Cross-Origin-Opener-Policy": "unsafe-none",
+  "Cross-Origin-Resource-Policy": "cross-origin",
+};
 
 export function transformNuhaHtml(html: string): NuhaMirrorContent {
   const styleLinks: string[] = [];

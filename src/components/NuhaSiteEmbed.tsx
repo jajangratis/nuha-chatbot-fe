@@ -1,31 +1,50 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { withBasePath } from "@/lib/app-path";
 
 const NUHA_DIRECT = "https://nuha.care/";
 
 type EmbedMode = "proxy" | "direct";
 
+function getForcedMode(): EmbedMode | null {
+  const mode = process.env.NEXT_PUBLIC_NUHA_EMBED_MODE?.toLowerCase();
+  if (mode === "proxy" || mode === "direct") return mode;
+  return null;
+}
+
 /**
- * Tampilkan nuha.care: proxy jika server lolos WAF, else iframe langsung (browser user).
+ * Tampilkan nuha.care lewat proxy (disarankan di belakang reverse proxy).
+ * Mode direct sering putih karena nuha.care memblokir iframe dari domain lain.
  */
 export function NuhaSiteEmbed() {
-  const [mode, setMode] = useState<EmbedMode | null>(null);
+  const forced = getForcedMode();
+  const [mode, setMode] = useState<EmbedMode | null>(forced);
   const [reloadKey, setReloadKey] = useState(0);
-  const [checking, setChecking] = useState(true);
+  const [checking, setChecking] = useState(forced === null);
+  const [showFallback, setShowFallback] = useState(false);
 
   const pickMode = useCallback(async () => {
+    if (forced) {
+      setMode(forced);
+      setChecking(false);
+      return;
+    }
+
     setChecking(true);
     try {
-      const res = await fetch("/api/nuha-proxy/check", { cache: "no-store" });
+      const res = await fetch(withBasePath("/api/nuha-proxy/check"), {
+        cache: "no-store",
+      });
       const data = (await res.json()) as { available?: boolean };
-      setMode(data.available ? "proxy" : "direct");
+      // Di belakang reverse proxy: proxy lebih andal daripada iframe direct
+      setMode(data.available ? "proxy" : "proxy");
     } catch {
-      setMode("direct");
+      setMode("proxy");
     } finally {
       setChecking(false);
     }
-  }, []);
+  }, [forced]);
 
   useEffect(() => {
     void pickMode();
@@ -33,18 +52,27 @@ export function NuhaSiteEmbed() {
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (event.data?.type === "nuha-proxy-failed" && mode === "proxy") {
-        setMode("direct");
-        setReloadKey((k) => k + 1);
+      if (event.data?.type === "nuha-proxy-failed") {
+        if (mode === "proxy" && forced !== "proxy") {
+          setMode("direct");
+          setReloadKey((k) => k + 1);
+        }
+        setShowFallback(true);
       }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [mode]);
+  }, [mode, forced]);
+
+  useEffect(() => {
+    if (checking) return;
+    const timer = window.setTimeout(() => setShowFallback(true), 12_000);
+    return () => window.clearTimeout(timer);
+  }, [checking, mode, reloadKey]);
 
   const iframeSrc = useMemo(() => {
     if (mode === "proxy") {
-      return `/api/nuha-proxy?path=/&_=${reloadKey}`;
+      return `${withBasePath("/api/nuha-proxy")}?path=/&_=${reloadKey}`;
     }
     if (mode === "direct") {
       return NUHA_DIRECT;
@@ -53,7 +81,8 @@ export function NuhaSiteEmbed() {
   }, [mode, reloadKey]);
 
   const handleReload = () => {
-    if (mode === "direct") {
+    setShowFallback(false);
+    if (!forced) {
       void pickMode().then(() => setReloadKey((k) => k + 1));
     } else {
       setReloadKey((k) => k + 1);
@@ -74,13 +103,47 @@ export function NuhaSiteEmbed() {
         key={`${mode}-${reloadKey}`}
         title="Nuha Care"
         src={iframeSrc}
-        className="fixed inset-0 z-0 h-full w-full border-0 bg-white"
+        className="fixed inset-0 z-0 h-full w-full border-0 bg-[#F5F5F5]"
         referrerPolicy="no-referrer-when-downgrade"
+        allow="fullscreen"
+        onLoad={() => setShowFallback(false)}
       />
+
+      {showFallback && (
+        <div className="pointer-events-none fixed inset-0 z-[1] flex items-end justify-center bg-gradient-to-t from-[#014547]/40 to-transparent pb-28">
+          <div className="pointer-events-auto mx-4 max-w-md rounded-2xl border border-[#E8E8E8] bg-white p-4 text-center shadow-lg">
+            <p className="text-sm font-medium text-[#014547]">
+              Halaman Nuha tidak tampil?
+            </p>
+            <p className="mt-1 text-xs text-[#717171]">
+              Biasanya karena pengaturan reverse proxy. Buka situs resmi atau
+              muat ulang.
+            </p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              <a
+                href={NUHA_DIRECT}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full bg-gradient-to-r from-[#639B15] to-[#AAE053] px-4 py-2 text-xs font-semibold text-white"
+              >
+                Buka nuha.care
+              </a>
+              <button
+                type="button"
+                onClick={handleReload}
+                className="rounded-full border border-[#E0E0E0] px-4 py-2 text-xs font-medium text-[#014547]"
+              >
+                Muat ulang
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <button
         type="button"
         onClick={handleReload}
-        className="fixed bottom-24 right-5 z-[1] rounded-full border border-[#E0E0E0]/80 bg-white/90 px-3 py-1.5 text-[10px] font-medium text-[#014547] shadow-sm backdrop-blur-sm transition hover:bg-white md:bottom-6 md:right-24"
+        className="fixed bottom-24 right-5 z-[2] rounded-full border border-[#E0E0E0]/80 bg-white/90 px-3 py-1.5 text-[10px] font-medium text-[#014547] shadow-sm backdrop-blur-sm transition hover:bg-white md:bottom-6 md:right-24"
         title="Muat ulang halaman Nuha"
       >
         Muat ulang
