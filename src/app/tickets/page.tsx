@@ -4,8 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoggedInHeaderInfo } from "@/components/LoggedInHeaderInfo";
-import { useAuthSession } from "@/hooks/use-auth-session";
-import { logout } from "@/lib/auth-api";
+import {
+  loadAuthToken,
+  loadAuthUser,
+  logout,
+  type AuthUser,
+} from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import { fetchTickets, type Ticket } from "@/lib/tickets-api";
 
@@ -21,16 +25,20 @@ const STATUS_OPTIONS = [
 
 export default function TicketsListPage() {
   const router = useRouter();
-  const { ready, token, user } = useAuthSession();
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!ready || !token) {
+    const token = loadAuthToken();
+    const authUser = loadAuthUser();
+    if (!token) {
+      router.replace(withBasePath("/login"));
       return;
     }
+    setUser(authUser);
 
     setLoading(true);
     setError(null);
@@ -38,7 +46,7 @@ export default function TicketsListPage() {
       .then((d) => setTickets(d.tickets))
       .catch((e) => setError(e instanceof Error ? e.message : "Gagal memuat"))
       .finally(() => setLoading(false));
-  }, [ready, token, statusFilter]);
+  }, [router, statusFilter]);
 
   return (
     <main className="min-h-full bg-[#F5F5F5]">
@@ -97,9 +105,7 @@ export default function TicketsListPage() {
           <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{error}</p>
         )}
 
-        {!ready ? (
-          <p className="text-sm text-[#717171]">Memuat sesi…</p>
-        ) : loading ? (
+        {loading ? (
           <p className="text-sm text-[#717171]">Memuat tiket…</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-[#E8E8E8] bg-white">

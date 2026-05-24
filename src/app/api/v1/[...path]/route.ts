@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 const SUPPORT_API_BASE =
-  process.env.SUPPORT_API_URL ?? "http://localhost:3000/api/v1";
+  process.env.SUPPORT_API_URL ?? "http://127.0.0.1:3000/api/v1";
 
 const TIMEOUT_MS = 180_000;
 
