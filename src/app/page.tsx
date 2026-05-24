@@ -1,11 +1,11 @@
-import { FloatingChatbot } from "@/components/FloatingChatbot";
+import { GuestSupportChat } from "@/components/GuestSupportChat";
 import { NuhaSiteEmbed } from "@/components/NuhaSiteEmbed";
 
 export default function Home() {
   return (
     <>
       <NuhaSiteEmbed />
-      <FloatingChatbot />
+      <GuestSupportChat />
     </>
   );
 }

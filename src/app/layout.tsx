@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
+import { AppProviders } from "@/components/AppProviders";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -30,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="id" className={`${montserrat.variable} h-full`}>
       <body className="min-h-full overflow-x-hidden bg-[#F5F5F5] antialiased">
-        {children}
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );
