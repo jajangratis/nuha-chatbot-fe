@@ -11,27 +11,27 @@ import {
   type AuthUser,
 } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
-import { useAuthUser } from "@/hooks/use-auth-user";
 
-type AuthSession = {
-  /** Client selesai baca / pulihkan localStorage + optional /auth/me */
+export type AuthSession = {
   ready: boolean;
   token: string | null;
   user: AuthUser | null;
 };
 
+type Options = {
+  /** Jika true (default), tanpa token → redirect /login */
+  requireAuth?: boolean;
+};
+
+const EMPTY_SESSION: AuthSession = { ready: false, token: null, user: null };
+
 /**
- * Bootstrap auth di client: token wajib; user dari localStorage atau GET /auth/me.
- * Redirect ke /login jika tidak ada sesi valid.
+ * Bootstrap auth di client. Jika token ada tapi user hilang, pulihkan via GET /auth/me.
  */
-export function useAuthSession(): AuthSession {
+export function useAuthSession(options: Options = {}): AuthSession {
+  const { requireAuth = true } = options;
   const router = useRouter();
-  const storedUser = useAuthUser();
-  const [session, setSession] = useState<AuthSession>({
-    ready: false,
-    token: null,
-    user: null,
-  });
+  const [session, setSession] = useState<AuthSession>(EMPTY_SESSION);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,22 +41,26 @@ export function useAuthSession(): AuthSession {
       if (!token) {
         if (!cancelled) {
           setSession({ ready: true, token: null, user: null });
-          router.replace(withBasePath("/login"));
+          if (requireAuth) {
+            router.replace(withBasePath("/login"));
+          }
         }
         return;
       }
 
-      let user = loadAuthUser() ?? storedUser;
+      let user = loadAuthUser();
       if (!user) {
         try {
-          const { user: me } = await fetchMe();
-          user = me;
+          const me = await fetchMe();
+          user = me.user;
           saveAuth(token, user);
         } catch {
-          clearAuth();
           if (!cancelled) {
+            clearAuth();
             setSession({ ready: true, token: null, user: null });
-            router.replace(withBasePath("/login"));
+            if (requireAuth) {
+              router.replace(withBasePath("/login"));
+            }
           }
           return;
         }
@@ -72,7 +76,7 @@ export function useAuthSession(): AuthSession {
     return () => {
       cancelled = true;
     };
-  }, [router, storedUser]);
+  }, [requireAuth, router]);
 
   return session;
 }

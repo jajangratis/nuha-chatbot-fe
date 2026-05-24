@@ -1,11 +1,5 @@
-import { GuestSupportChat } from "@/components/GuestSupportChat";
-import { NuhaSiteEmbed } from "@/components/NuhaSiteEmbed";
+import { HomeEntry } from "@/components/HomeEntry";
 
 export default function Home() {
-  return (
-    <>
-      <NuhaSiteEmbed />
-      <GuestSupportChat />
-    </>
-  );
+  return <HomeEntry />;
 }

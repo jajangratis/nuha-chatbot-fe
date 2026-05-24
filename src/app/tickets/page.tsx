@@ -24,7 +24,7 @@ export default function TicketsListPage() {
   const { ready, token, user } = useAuthSession();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -97,8 +97,10 @@ export default function TicketsListPage() {
           <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{error}</p>
         )}
 
-        {!ready || loading ? (
-          <p className="text-sm text-[#717171]">Memuat...</p>
+        {!ready ? (
+          <p className="text-sm text-[#717171]">Memuat sesi…</p>
+        ) : loading ? (
+          <p className="text-sm text-[#717171]">Memuat tiket…</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-[#E8E8E8] bg-white">
             <table className="w-full text-left text-sm">

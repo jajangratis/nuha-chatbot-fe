@@ -117,7 +117,11 @@ export function NuhaSiteEmbed() {
             </p>
             <p className="mt-1 text-xs text-[#717171]">
               Biasanya karena pengaturan reverse proxy. Buka situs resmi atau
-              muat ulang.
+              muat ulang. Staff Support Hub:{" "}
+              <a href={withBasePath("/login")} className="text-[#07C5BA] underline">
+                masuk di sini
+              </a>
+              .
             </p>
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               <a
@@ -139,15 +143,6 @@ export function NuhaSiteEmbed() {
           </div>
         </div>
       )}
-
-      <button
-        type="button"
-        onClick={handleReload}
-        className="fixed bottom-24 right-5 z-[2] rounded-full border border-[#E0E0E0]/80 bg-white/90 px-3 py-1.5 text-[10px] font-medium text-[#014547] shadow-sm backdrop-blur-sm transition hover:bg-white md:bottom-6 md:right-24"
-        title="Muat ulang halaman Nuha"
-      >
-        Muat ulang
-      </button>
     </>
   );
 }
