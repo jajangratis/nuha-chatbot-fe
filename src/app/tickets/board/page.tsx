@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoggedInHeaderInfo } from "@/components/LoggedInHeaderInfo";
-import { useAuthUser } from "@/hooks/use-auth-user";
-import { loadAuthToken } from "@/lib/auth-api";
+import { loadAuthToken, loadAuthUser, type AuthUser } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import { fetchTickets, patchTicket, type Ticket } from "@/lib/tickets-api";
 
@@ -21,7 +20,7 @@ const TICKET_ID_MIME = "application/x-nuha-ticket-id";
 
 export default function TicketsBoardPage() {
   const router = useRouter();
-  const user = useAuthUser();
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -32,17 +31,20 @@ export default function TicketsBoardPage() {
   const reload = useCallback(async () => {
     const data = await fetchTickets();
     setTickets(data.tickets);
-    setLoading(false);
   }, []);
 
   useEffect(() => {
-    if (!loadAuthToken()) {
+    const token = loadAuthToken();
+    if (!token) {
       router.replace(withBasePath("/login"));
       return;
     }
-    void reload().catch((e) =>
-      setError(e instanceof Error ? e.message : "Gagal memuat tiket"),
-    );
+    setUser(loadAuthUser());
+    setLoading(true);
+    setError(null);
+    void reload()
+      .catch((e) => setError(e instanceof Error ? e.message : "Gagal memuat tiket"))
+      .finally(() => setLoading(false));
   }, [router, reload]);
 
   const moveTicket = async (ticketId: string, status: string) => {
@@ -112,7 +114,7 @@ export default function TicketsBoardPage() {
       </p>
 
       {loading ? (
-        <p className="p-4 text-sm">Memuat...</p>
+        <p className="p-4 text-sm text-[#717171]">Memuat board…</p>
       ) : (
         <div className="flex gap-3 overflow-x-auto p-4">
           {COLUMNS.map((col) => {

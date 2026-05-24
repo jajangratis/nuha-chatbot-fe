@@ -16,6 +16,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/tickets/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store, must-revalidate",
+          },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           {

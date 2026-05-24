@@ -4,8 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
-import { useAuthUser } from "@/hooks/use-auth-user";
-import { loadAuthToken, loadAuthUser } from "@/lib/auth-api";
+import { loadAuthToken, loadAuthUser, type AuthUser } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import {
   addTicketComment,
@@ -20,7 +19,7 @@ import {
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const user = useAuthUser();
+  const [user, setUser] = useState<AuthUser | null>(null);
   const isStaff = Boolean(user && user.role !== "user");
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -52,6 +51,7 @@ export default function TicketDetailPage() {
       router.replace(withBasePath("/login"));
       return;
     }
+    setUser(loadAuthUser());
     void load()
       .catch((e) => setError(e instanceof Error ? e.message : "Gagal memuat"))
       .finally(() => setLoading(false));
