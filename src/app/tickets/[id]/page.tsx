@@ -18,6 +18,7 @@ import {
 import {
   formatTicketPriority,
   TICKET_PRIORITIES,
+  ticketPrioritySelectClass,
   type TicketPriority,
 } from "@/lib/ticket-priority";
 import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
@@ -44,6 +45,7 @@ export default function TicketDetailPage() {
   const [savingAssignees, setSavingAssignees] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [urlCopied, setUrlCopied] = useState(false);
 
   const load = async () => {
     if (!id) return;
@@ -107,6 +109,18 @@ export default function TicketDetailPage() {
     }
   };
 
+  const copyTicketUrl = async () => {
+    if (!id || typeof window === "undefined") return;
+    const url = `${window.location.origin}${withBasePath(`/tickets/${id}`)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setUrlCopied(true);
+      window.setTimeout(() => setUrlCopied(false), 2000);
+    } catch {
+      setError("Gagal menyalin URL tiket");
+    }
+  };
+
   const onComment = async (e: FormEvent) => {
     e.preventDefault();
     if (!id || !commentText.trim()) return;
@@ -150,8 +164,20 @@ export default function TicketDetailPage() {
             <span className="font-medium text-white">{user.display_name}</span>
           </p>
         )}
-        <h1 className="mt-1 text-lg font-semibold">{ticket.ticket_number}</h1>
-        <p className="text-sm text-white/90">{ticket.title}</p>
+        <div className="mt-1 flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-semibold">{ticket.ticket_number}</h1>
+            <p className="text-sm text-white/90">{ticket.title}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void copyTicketUrl()}
+            className="shrink-0 rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
+            title="Salin link halaman tiket ini"
+          >
+            {urlCopied ? "URL tersalin" : "Salin URL"}
+          </button>
+        </div>
       </header>
 
       {error && (
@@ -194,19 +220,22 @@ export default function TicketDetailPage() {
             <dt className="text-[#717171]">Prioritas</dt>
             <dd>
               {isStaff ? (
-                <select
-                  value={ticket.priority}
-                  onChange={(e) =>
-                    void onPriorityChange(e.target.value as TicketPriority)
-                  }
-                  className="rounded border px-1 py-0.5"
-                >
-                  {TICKET_PRIORITIES.map((p) => (
-                    <option key={p} value={p}>
-                      {formatTicketPriority(p)}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex flex-wrap items-center gap-2">
+                  <TicketPriorityBadge priority={ticket.priority} />
+                  <select
+                    value={ticket.priority}
+                    onChange={(e) =>
+                      void onPriorityChange(e.target.value as TicketPriority)
+                    }
+                    className={`rounded border-2 bg-white px-1.5 py-0.5 text-xs focus:outline-none focus:ring-2 ${ticketPrioritySelectClass(ticket.priority)}`}
+                  >
+                    {TICKET_PRIORITIES.map((p) => (
+                      <option key={p} value={p}>
+                        {formatTicketPriority(p)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               ) : (
                 <TicketPriorityBadge priority={ticket.priority} />
               )}
