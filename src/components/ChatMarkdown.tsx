@@ -50,7 +50,12 @@ const markdownComponents: Components = {
     </a>
   ),
   hr: () => <hr className="my-3 border-0 border-t border-[#E8E8E8]" />,
-  img: ({ src, alt }) => <MarkdownImage src={src} alt={alt} />,
+  img: ({ src, alt }) => (
+    <MarkdownImage
+      src={typeof src === "string" ? src : undefined}
+      alt={typeof alt === "string" ? alt : undefined}
+    />
+  ),
   blockquote: ({ children }) => (
     <blockquote className="my-2 border-l-[3px] border-[#AAE053] bg-[#F8FBF3] py-1.5 pl-3 pr-2 text-[#0B1D15]/90">
       {children}
