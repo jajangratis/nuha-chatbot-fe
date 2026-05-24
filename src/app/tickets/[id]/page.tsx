@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { loadAuthToken, loadAuthUser, type AuthUser } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import { AssigneeSearchSelect } from "@/components/AssigneeSearchSelect";
@@ -14,7 +13,9 @@ import {
   patchTicket,
   type AssignableUser,
   type Ticket,
+  type TicketChatMessage,
 } from "@/lib/tickets-api";
+import { TicketChatPanel } from "@/components/TicketChatPanel";
 import {
   formatTicketPriority,
   TICKET_PRIORITIES,
@@ -34,11 +35,9 @@ export default function TicketDetailPage() {
   const [comments, setComments] = useState<
     { id: string; body: string; visibility: string; author_name: string; created_at: string }[]
   >([]);
-  const [messages, setMessages] = useState<
-    { id: string; role: string; content: string; created_at: string }[]
-  >([]);
+  const [messages, setMessages] = useState<TicketChatMessage[]>([]);
+  const [ticketChatOpen, setTicketChatOpen] = useState(false);
   const [commentText, setCommentText] = useState("");
-  const [commentVis, setCommentVis] = useState<"internal" | "public">("internal");
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [loadingAssignable, setLoadingAssignable] = useState(false);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
@@ -54,6 +53,7 @@ export default function TicketDetailPage() {
     setSelectedAssignees((data.ticket.assignees ?? []).map((a) => a.id));
     setComments(data.comments);
     setMessages(data.messages);
+    setTicketChatOpen(Boolean(data.ticket_chat_open && data.has_session));
   };
 
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function TicketDetailPage() {
     e.preventDefault();
     if (!id || !commentText.trim()) return;
     try {
-      await addTicketComment(id, commentText.trim(), commentVis);
+      await addTicketComment(id, commentText.trim());
       setCommentText("");
       await load();
     } catch (err) {
@@ -285,90 +285,71 @@ export default function TicketDetailPage() {
         </section>
 
         <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white p-4">
-          <h2 className="mb-2 shrink-0 text-sm font-semibold text-[#014547]">
-            Transcript chat
+          <h2 className="mb-1 shrink-0 text-sm font-semibold text-[#014547]">
+            Chat tiket
           </h2>
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain text-sm">
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className={`rounded-lg px-2 py-1 ${
-                  m.role === "user"
-                    ? "bg-[#014547]/10"
-                    : m.role === "system"
-                      ? "text-center text-xs italic text-[#717171]"
-                      : "bg-[#F5F5F5]"
-                }`}
-              >
-                <span className="text-[10px] uppercase text-[#717171]">{m.role}</span>
-                {m.role === "assistant" ? (
-                  <ChatMarkdown content={m.content} />
-                ) : (
-                  <p className="whitespace-pre-wrap">{m.content}</p>
-                )}
-              </div>
-            ))}
-            {messages.length === 0 && (
-              <p className="text-xs text-[#717171]">Tidak ada transcript</p>
-            )}
-          </div>
+          <p className="mb-2 shrink-0 text-[10px] text-[#717171]">
+            Percakapan user RS dengan tim (implementator / support dev). Riwayat AI
+            tetap ditampilkan di atas.
+          </p>
+          {!ticket.session_id ? (
+            <p className="text-xs text-[#717171]">
+              Tiket ini tidak memiliki sesi chat terhubung.
+            </p>
+          ) : id ? (
+            <TicketChatPanel
+              ticketId={id}
+              messages={messages}
+              chatOpen={ticketChatOpen}
+              onSent={() => void load()}
+              onError={(message) => setError(message)}
+            />
+          ) : null}
         </section>
 
-        <section className="w-full rounded-xl border border-[#E8E8E8] bg-white p-4 lg:col-span-2">
-            <h2 className="mb-2 text-sm font-semibold text-[#014547]">Komentar</h2>
+        {isStaff && (
+          <section className="w-full rounded-xl border border-[#E8E8E8] bg-white p-4 lg:col-span-2">
+            <h2 className="mb-1 text-sm font-semibold text-[#014547]">
+              Komentar internal
+            </h2>
+            <p className="mb-3 text-[10px] text-[#717171]">
+              Hanya terlihat oleh tim staff, tidak dikirim ke user RS.
+            </p>
             <ul className="mb-4 space-y-2">
               {comments.map((c) => (
                 <li
                   key={c.id}
-                  className="rounded-lg border border-[#F0F0F0] px-3 py-2 text-sm"
+                  className="rounded-lg border border-[#F0F0F0] bg-[#FAFAFA] px-3 py-2 text-sm"
                 >
                   <p className="text-[10px] text-[#717171]">
-                    {c.author_name} · {c.visibility} ·{" "}
+                    {c.author_name} ·{" "}
                     {new Date(c.created_at).toLocaleString("id-ID")}
                   </p>
                   <p className="mt-1 whitespace-pre-wrap">{c.body}</p>
                 </li>
               ))}
               {comments.length === 0 && (
-                <li className="text-xs text-[#717171]">Belum ada komentar</li>
+                <li className="text-xs text-[#717171]">Belum ada komentar internal</li>
               )}
             </ul>
-            {isStaff && (
-              <form onSubmit={onComment} className="flex flex-col gap-2">
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  placeholder="Tambah komentar..."
-                />
-                <div className="flex items-center gap-4">
-                  <label className="text-xs">
-                    <input
-                      type="radio"
-                      checked={commentVis === "internal"}
-                      onChange={() => setCommentVis("internal")}
-                    />{" "}
-                    Internal
-                  </label>
-                  <label className="text-xs">
-                    <input
-                      type="radio"
-                      checked={commentVis === "public"}
-                      onChange={() => setCommentVis("public")}
-                    />{" "}
-                    Public (sync ke chat user)
-                  </label>
-                  <button
-                    type="submit"
-                    className="ml-auto rounded-lg bg-[#014547] px-4 py-1.5 text-xs text-white"
-                  >
-                    Kirim
-                  </button>
-                </div>
-              </form>
-            )}
-        </section>
+            <form onSubmit={onComment} className="flex flex-col gap-2">
+              <textarea
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                rows={3}
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+                placeholder="Catatan internal untuk tim…"
+              />
+              <button
+                type="submit"
+                disabled={!commentText.trim()}
+                className="self-end rounded-lg bg-[#014547] px-4 py-1.5 text-xs text-white disabled:opacity-50"
+              >
+                Kirim komentar internal
+              </button>
+            </form>
+          </section>
+        )}
       </div>
     </main>
   );

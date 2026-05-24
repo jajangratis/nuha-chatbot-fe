@@ -62,6 +62,14 @@ export async function fetchTickets(params?: {
   );
 }
 
+export type TicketChatMessage = {
+  id: string;
+  role: string;
+  content: string;
+  metadata?: unknown;
+  created_at: string;
+};
+
 export async function fetchTicketDetail(id: string) {
   return ticketsFetch<{
     ticket: Ticket;
@@ -77,13 +85,17 @@ export async function fetchTicketDetail(id: string) {
       actor_name: string;
       created_at: string;
     }[];
-    messages: {
-      id: string;
-      role: string;
-      content: string;
-      created_at: string;
-    }[];
+    messages: TicketChatMessage[];
+    ticket_chat_open: boolean;
+    has_session: boolean;
   }>(`tickets/${id}`, { method: "GET" });
+}
+
+export async function sendTicketChatMessage(ticketId: string, message: string) {
+  return ticketsFetch<{ message: TicketChatMessage }>(`tickets/${ticketId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
 }
 
 export async function fetchAssignableUsers() {
@@ -140,13 +152,9 @@ export async function uploadTicketDescriptionImage(ticketId: string, file: File)
   return { attachment: data.attachment };
 }
 
-export async function addTicketComment(
-  id: string,
-  body: string,
-  visibility: "internal" | "public",
-) {
+export async function addTicketComment(id: string, body: string) {
   return ticketsFetch(`tickets/${id}/comments`, {
     method: "POST",
-    body: JSON.stringify({ body, visibility }),
+    body: JSON.stringify({ body }),
   });
 }
