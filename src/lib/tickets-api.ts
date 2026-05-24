@@ -1,4 +1,7 @@
+import { loadAuthToken } from "@/lib/auth-api";
+import { withBasePath } from "@/lib/app-path";
 import { supportHubFetch } from "@/lib/support-hub-fetch";
+import type { TicketPriority } from "@/lib/ticket-priority";
 
 export type TicketAssignee = {
   id: string;
@@ -15,7 +18,7 @@ export type Ticket = {
   description: string | null;
   ai_summary: string | null;
   status: string;
-  priority: string;
+  priority: TicketPriority | string;
   module: string | null;
   hospital: { id: string; code: string; name: string } | null;
   assignees?: TicketAssignee[];
@@ -45,10 +48,12 @@ function ticketsFetch<T>(path: string, options: RequestInit = {}) {
 
 export async function fetchTickets(params?: {
   status?: string;
+  priority?: string;
   module?: string;
 }) {
   const q = new URLSearchParams();
   if (params?.status) q.set("status", params.status);
+  if (params?.priority) q.set("priority", params.priority);
   if (params?.module) q.set("module", params.module);
   const qs = q.toString();
   return ticketsFetch<{ tickets: Ticket[] }>(
@@ -87,20 +92,52 @@ export async function fetchAssignableUsers() {
   });
 }
 
+export type TicketAttachment = {
+  id: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  url: string;
+};
+
 export async function patchTicket(
   id: string,
   body: Partial<{
     status: string;
-    priority: string;
+    priority: TicketPriority | string;
     assignee_id: string;
     assignee_ids: string[];
     ai_summary: string;
+    description: string;
   }>,
 ) {
   return ticketsFetch<{ ticket: Ticket }>(`tickets/${id}`, {
     method: "PATCH",
     body: JSON.stringify(body),
   });
+}
+
+export async function uploadTicketDescriptionImage(ticketId: string, file: File) {
+  const token = loadAuthToken();
+  if (!token) throw new Error("Silakan login.");
+
+  const fd = new FormData();
+  fd.append("file", file);
+
+  const headers = new Headers();
+  headers.set("Authorization", `Bearer ${token}`);
+
+  const res = await fetch(withBasePath(`/api/v1/tickets/${ticketId}/attachments`), {
+    method: "POST",
+    headers,
+    body: fd,
+  });
+
+  const data = (await res.json()) as { attachment?: TicketAttachment; error?: string };
+  if (!res.ok || !data.attachment) {
+    throw new Error(data.error ?? `Upload gagal (${res.status})`);
+  }
+  return { attachment: data.attachment };
 }
 
 export async function addTicketComment(

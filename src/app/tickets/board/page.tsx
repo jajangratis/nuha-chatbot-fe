@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { LoggedInHeaderInfo } from "@/components/LoggedInHeaderInfo";
 import { loadAuthToken, loadAuthUser, type AuthUser } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
+import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
 import { fetchTickets, patchTicket, type Ticket } from "@/lib/tickets-api";
 
 const COLUMNS = [
@@ -162,9 +163,12 @@ export default function TicketsBoardPage() {
                         >
                           {t.ticket_number}
                         </Link>
-                        {savingId === t.id && (
-                          <span className="text-[10px] text-[#717171]">…</span>
-                        )}
+                        <div className="flex shrink-0 items-center gap-1">
+                          <TicketPriorityBadge priority={t.priority} />
+                          {savingId === t.id && (
+                            <span className="text-[10px] text-[#717171]">…</span>
+                          )}
+                        </div>
                       </div>
                       <p className="mt-1 line-clamp-2 text-[#333]">{t.title}</p>
                       <p className="mt-1 text-[#717171]">

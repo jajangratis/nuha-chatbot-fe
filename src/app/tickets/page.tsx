@@ -11,7 +11,9 @@ import {
   type AuthUser,
 } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
+import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
 import { fetchTickets, type Ticket } from "@/lib/tickets-api";
+import { formatTicketPriority, TICKET_PRIORITIES } from "@/lib/ticket-priority";
 
 const STATUS_OPTIONS = [
   "",
@@ -28,6 +30,7 @@ export default function TicketsListPage() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,11 +45,15 @@ export default function TicketsListPage() {
 
     setLoading(true);
     setError(null);
-    void fetchTickets(statusFilter ? { status: statusFilter } : undefined)
+    const params: { status?: string; priority?: string } = {};
+    if (statusFilter) params.status = statusFilter;
+    if (priorityFilter) params.priority = priorityFilter;
+
+    void fetchTickets(Object.keys(params).length ? params : undefined)
       .then((d) => setTickets(d.tickets))
       .catch((e) => setError(e instanceof Error ? e.message : "Gagal memuat"))
       .finally(() => setLoading(false));
-  }, [router, statusFilter]);
+  }, [router, statusFilter, priorityFilter]);
 
   return (
     <main className="min-h-full bg-[#F5F5F5]">
@@ -84,7 +91,7 @@ export default function TicketsListPage() {
       </header>
 
       <div className="mx-auto max-w-5xl p-4">
-        <div className="mb-4 flex items-center gap-3">
+        <div className="mb-4 flex flex-wrap items-center gap-4">
           <label className="text-sm text-[#014547]">
             Status
             <select
@@ -95,6 +102,21 @@ export default function TicketsListPage() {
               {STATUS_OPTIONS.map((s) => (
                 <option key={s || "all"} value={s}>
                   {s || "Semua"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-[#014547]">
+            Prioritas
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="ml-2 rounded border px-2 py-1 text-sm"
+            >
+              <option value="">Semua</option>
+              {TICKET_PRIORITIES.map((p) => (
+                <option key={p} value={p}>
+                  {formatTicketPriority(p)}
                 </option>
               ))}
             </select>
@@ -134,7 +156,9 @@ export default function TicketsListPage() {
                     <td className="max-w-[200px] truncate px-3 py-2">{t.title}</td>
                     <td className="px-3 py-2">{t.hospital?.code ?? "—"}</td>
                     <td className="px-3 py-2">{t.status}</td>
-                    <td className="px-3 py-2">{t.priority}</td>
+                    <td className="px-3 py-2">
+                      <TicketPriorityBadge priority={t.priority} />
+                    </td>
                     <td className="px-3 py-2">
                       {t.assignee_names ?? t.assignee_name ?? "—"}
                     </td>

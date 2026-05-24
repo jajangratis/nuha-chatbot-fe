@@ -6,15 +6,22 @@ import { useParams, useRouter } from "next/navigation";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { loadAuthToken, loadAuthUser, type AuthUser } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
+import { AssigneeSearchSelect } from "@/components/AssigneeSearchSelect";
 import {
   addTicketComment,
   fetchAssignableUsers,
   fetchTicketDetail,
-  formatAssigneeLabel,
   patchTicket,
   type AssignableUser,
   type Ticket,
 } from "@/lib/tickets-api";
+import {
+  formatTicketPriority,
+  TICKET_PRIORITIES,
+  type TicketPriority,
+} from "@/lib/ticket-priority";
+import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
+import { TicketDescriptionEditor } from "@/components/TicketDescriptionEditor";
 
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +39,7 @@ export default function TicketDetailPage() {
   const [commentText, setCommentText] = useState("");
   const [commentVis, setCommentVis] = useState<"internal" | "public">("internal");
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
+  const [loadingAssignable, setLoadingAssignable] = useState(false);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [savingAssignees, setSavingAssignees] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -57,9 +65,11 @@ export default function TicketDetailPage() {
       .finally(() => setLoading(false));
 
     if (loadAuthUser()?.role !== "user") {
+      setLoadingAssignable(true);
       void fetchAssignableUsers()
         .then((d) => setAssignableUsers(d.users))
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setLoadingAssignable(false));
     }
   }, [id, router]);
 
@@ -73,10 +83,14 @@ export default function TicketDetailPage() {
     }
   };
 
-  const toggleAssignee = (userId: string) => {
-    setSelectedAssignees((prev) =>
-      prev.includes(userId) ? prev.filter((x) => x !== userId) : [...prev, userId],
-    );
+  const onPriorityChange = async (priority: TicketPriority) => {
+    if (!id) return;
+    try {
+      await patchTicket(id, { priority });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal update prioritas");
+    }
   };
 
   const onSaveAssignees = async () => {
@@ -144,9 +158,9 @@ export default function TicketDetailPage() {
         <p className="bg-amber-50 px-4 py-2 text-sm text-amber-900">{error}</p>
       )}
 
-      <div className="mx-auto grid max-w-6xl gap-4 p-4 lg:grid-cols-2">
-        <section className="space-y-4 rounded-xl border border-[#E8E8E8] bg-white p-4">
-          <h2 className="text-sm font-semibold text-[#014547]">Detail</h2>
+      <div className="mx-auto grid max-w-6xl gap-4 p-4 lg:grid-cols-2 lg:items-stretch">
+        <section className="flex h-full min-h-0 flex-col gap-4 rounded-xl border border-[#E8E8E8] bg-white p-4">
+          <h2 className="shrink-0 text-sm font-semibold text-[#014547]">Detail</h2>
           <dl className="grid grid-cols-2 gap-2 text-xs">
             <dt className="text-[#717171]">Status</dt>
             <dd>
@@ -178,29 +192,36 @@ export default function TicketDetailPage() {
             <dt className="text-[#717171]">RS</dt>
             <dd>{ticket.hospital?.name ?? "—"}</dd>
             <dt className="text-[#717171]">Prioritas</dt>
-            <dd>{ticket.priority}</dd>
-            <dt className="text-[#717171]">Assignee</dt>
             <dd>
               {isStaff ? (
+                <select
+                  value={ticket.priority}
+                  onChange={(e) =>
+                    void onPriorityChange(e.target.value as TicketPriority)
+                  }
+                  className="rounded border px-1 py-0.5"
+                >
+                  {TICKET_PRIORITIES.map((p) => (
+                    <option key={p} value={p}>
+                      {formatTicketPriority(p)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <TicketPriorityBadge priority={ticket.priority} />
+              )}
+            </dd>
+            <dt className="text-[#717171]">Assignee</dt>
+            <dd className="col-span-2">
+              {isStaff ? (
                 <div className="space-y-2">
-                  <div className="max-h-36 space-y-1 overflow-y-auto rounded border border-[#E8E8E8] p-2">
-                    {assignableUsers.length === 0 && (
-                      <p className="text-[#717171]">Memuat daftar tim...</p>
-                    )}
-                    {assignableUsers.map((u) => (
-                      <label
-                        key={u.id}
-                        className="flex cursor-pointer items-center gap-2 text-xs"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedAssignees.includes(u.id)}
-                          onChange={() => toggleAssignee(u.id)}
-                        />
-                        <span>{formatAssigneeLabel(u)}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <AssigneeSearchSelect
+                    users={assignableUsers}
+                    value={selectedAssignees}
+                    onChange={setSelectedAssignees}
+                    disabled={savingAssignees}
+                    loading={loadingAssignable}
+                  />
                   <button
                     type="button"
                     disabled={savingAssignees}
@@ -215,23 +236,30 @@ export default function TicketDetailPage() {
               )}
             </dd>
           </dl>
-          {ticket.description && (
-            <div>
-              <h3 className="mb-1 text-xs font-medium text-[#014547]">Deskripsi</h3>
-              <p className="whitespace-pre-wrap text-sm text-[#333]">{ticket.description}</p>
-            </div>
-          )}
           {ticket.ai_summary && isStaff && (
             <div>
               <h3 className="mb-1 text-xs font-medium text-[#014547]">Ringkasan AI</h3>
               <p className="whitespace-pre-wrap text-sm text-[#333]">{ticket.ai_summary}</p>
             </div>
           )}
+          {(isStaff || ticket.description) && id && (
+            <TicketDescriptionEditor
+              ticketId={id}
+              value={ticket.description ?? ""}
+              editable={isStaff}
+              onSaved={(description) =>
+                setTicket((t) => (t ? { ...t, description } : t))
+              }
+              onError={(message) => setError(message)}
+            />
+          )}
         </section>
 
-        <section className="rounded-xl border border-[#E8E8E8] bg-white p-4">
-          <h2 className="mb-2 text-sm font-semibold text-[#014547]">Transcript chat</h2>
-          <div className="max-h-80 space-y-2 overflow-y-auto text-sm">
+        <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white p-4">
+          <h2 className="mb-2 shrink-0 text-sm font-semibold text-[#014547]">
+            Transcript chat
+          </h2>
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain text-sm">
             {messages.map((m) => (
               <div
                 key={m.id}
@@ -257,60 +285,60 @@ export default function TicketDetailPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-[#E8E8E8] bg-white p-4 lg:col-span-2">
-          <h2 className="mb-2 text-sm font-semibold text-[#014547]">Komentar</h2>
-          <ul className="mb-4 space-y-2">
-            {comments.map((c) => (
-              <li
-                key={c.id}
-                className="rounded-lg border border-[#F0F0F0] px-3 py-2 text-sm"
-              >
-                <p className="text-[10px] text-[#717171]">
-                  {c.author_name} · {c.visibility} ·{" "}
-                  {new Date(c.created_at).toLocaleString("id-ID")}
-                </p>
-                <p className="mt-1 whitespace-pre-wrap">{c.body}</p>
-              </li>
-            ))}
-            {comments.length === 0 && (
-              <li className="text-xs text-[#717171]">Belum ada komentar</li>
-            )}
-          </ul>
-          {isStaff && (
-            <form onSubmit={onComment} className="flex flex-col gap-2">
-              <textarea
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                rows={3}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                placeholder="Tambah komentar..."
-              />
-              <div className="flex items-center gap-4">
-                <label className="text-xs">
-                  <input
-                    type="radio"
-                    checked={commentVis === "internal"}
-                    onChange={() => setCommentVis("internal")}
-                  />{" "}
-                  Internal
-                </label>
-                <label className="text-xs">
-                  <input
-                    type="radio"
-                    checked={commentVis === "public"}
-                    onChange={() => setCommentVis("public")}
-                  />{" "}
-                  Public (sync ke chat user)
-                </label>
-                <button
-                  type="submit"
-                  className="ml-auto rounded-lg bg-[#014547] px-4 py-1.5 text-xs text-white"
+        <section className="w-full rounded-xl border border-[#E8E8E8] bg-white p-4 lg:col-span-2">
+            <h2 className="mb-2 text-sm font-semibold text-[#014547]">Komentar</h2>
+            <ul className="mb-4 space-y-2">
+              {comments.map((c) => (
+                <li
+                  key={c.id}
+                  className="rounded-lg border border-[#F0F0F0] px-3 py-2 text-sm"
                 >
-                  Kirim
-                </button>
-              </div>
-            </form>
-          )}
+                  <p className="text-[10px] text-[#717171]">
+                    {c.author_name} · {c.visibility} ·{" "}
+                    {new Date(c.created_at).toLocaleString("id-ID")}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap">{c.body}</p>
+                </li>
+              ))}
+              {comments.length === 0 && (
+                <li className="text-xs text-[#717171]">Belum ada komentar</li>
+              )}
+            </ul>
+            {isStaff && (
+              <form onSubmit={onComment} className="flex flex-col gap-2">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  placeholder="Tambah komentar..."
+                />
+                <div className="flex items-center gap-4">
+                  <label className="text-xs">
+                    <input
+                      type="radio"
+                      checked={commentVis === "internal"}
+                      onChange={() => setCommentVis("internal")}
+                    />{" "}
+                    Internal
+                  </label>
+                  <label className="text-xs">
+                    <input
+                      type="radio"
+                      checked={commentVis === "public"}
+                      onChange={() => setCommentVis("public")}
+                    />{" "}
+                    Public (sync ke chat user)
+                  </label>
+                  <button
+                    type="submit"
+                    className="ml-auto rounded-lg bg-[#014547] px-4 py-1.5 text-xs text-white"
+                  >
+                    Kirim
+                  </button>
+                </div>
+              </form>
+            )}
         </section>
       </div>
     </main>
