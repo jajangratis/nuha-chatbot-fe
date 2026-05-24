@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoggedInHeaderInfo } from "@/components/LoggedInHeaderInfo";
-import { useAuthUser } from "@/hooks/use-auth-user";
-import { loadAuthToken, logout } from "@/lib/auth-api";
+import { useAuthSession } from "@/hooks/use-auth-session";
+import { logout } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import { fetchTickets, type Ticket } from "@/lib/tickets-api";
 
@@ -21,25 +21,24 @@ const STATUS_OPTIONS = [
 
 export default function TicketsListPage() {
   const router = useRouter();
-  const user = useAuthUser();
+  const { ready, token, user } = useAuthSession();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = loadAuthToken();
-    if (!token || !user) {
-      router.replace(withBasePath("/login"));
+    if (!ready || !token) {
       return;
     }
 
     setLoading(true);
+    setError(null);
     void fetchTickets(statusFilter ? { status: statusFilter } : undefined)
       .then((d) => setTickets(d.tickets))
       .catch((e) => setError(e instanceof Error ? e.message : "Gagal memuat"))
       .finally(() => setLoading(false));
-  }, [router, statusFilter, user]);
+  }, [ready, token, statusFilter]);
 
   return (
     <main className="min-h-full bg-[#F5F5F5]">
@@ -98,7 +97,7 @@ export default function TicketsListPage() {
           <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{error}</p>
         )}
 
-        {loading ? (
+        {!ready || loading ? (
           <p className="text-sm text-[#717171]">Memuat...</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-[#E8E8E8] bg-white">

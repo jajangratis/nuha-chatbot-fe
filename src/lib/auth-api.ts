@@ -14,6 +14,15 @@ export type AuthUser = {
 const TOKEN_KEY = "nuha_support_auth_token";
 const USER_KEY = "nuha_support_auth_user";
 
+/** Dispar ke useAuthUser saat login/logout di tab yang sama (storage event tidak fire). */
+export const AUTH_CHANGE_EVENT = "nuha-auth-change";
+
+function notifyAuthChange() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
+  }
+}
+
 export function loadAuthToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(TOKEN_KEY);
@@ -33,11 +42,13 @@ export function loadAuthUser(): AuthUser | null {
 export function saveAuth(token: string, user: AuthUser) {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  notifyAuthChange();
 }
 
 export function clearAuth() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  notifyAuthChange();
 }
 
 async function authFetch<T>(
