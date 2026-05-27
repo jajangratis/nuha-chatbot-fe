@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoggedInHeaderInfo } from "@/components/LoggedInHeaderInfo";
+import { NotificationBell } from "@/components/NotificationBell";
 import {
   loadAuthToken,
   loadAuthUser,
@@ -152,7 +153,8 @@ export default function TicketsListPage() {
           title="Tiket Gangguan"
           subtitle="Nuha Care TMS"
         />
-        <nav className="flex gap-2 text-xs">
+        <nav className="flex items-center gap-2 text-xs">
+          <NotificationBell />
           {user?.role !== "user" && (
             <Link href={withBasePath("/agent")} className="rounded-lg px-2 py-1 hover:bg-white/10">
               Chat

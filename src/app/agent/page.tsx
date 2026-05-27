@@ -7,13 +7,16 @@ import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { ChatReadReceipt } from "@/components/ChatReadReceipt";
 import { LoggedInHeaderInfo } from "@/components/LoggedInHeaderInfo";
+import { NotificationBell } from "@/components/NotificationBell";
 import { MessageAttachments } from "@/components/MessageAttachments";
 import { SessionLastUserReply } from "@/components/SessionLastUserReply";
 import { loadAuthToken, loadAuthUser, logout, type AuthUser } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import {
+  agentSessionHref,
   notifyNewChatMessages,
   pushNotification,
+  ticketHref,
 } from "@/lib/notify";
 import {
   formatSessionClosedAt,
@@ -139,6 +142,7 @@ export default function AgentDashboardPage() {
         title: "Antrian baru",
         body: `${queueLen - prevQueueLen.current} kasus menunggu di antrian`,
         type: "info",
+        href: withBasePath("/agent"),
       });
     }
     prevQueueLen.current = queueLen;
@@ -156,6 +160,7 @@ export default function AgentDashboardPage() {
           myRoles: ["agent", "assistant"],
           peerLabel: "Pesan dari pengguna",
           onlyWhenHidden: true,
+          href: agentSessionHref(sessionId),
         });
       } else {
         ui.forEach((m) => knownMessageIds.current.add(m.id));
@@ -208,12 +213,22 @@ export default function AgentDashboardPage() {
     };
   }, [router, loadDashboard, loadMessages, activeId, sidebarTab]);
 
-  const openSession = (sessionId: string) => {
+  const openSession = useCallback((sessionId: string) => {
     knownMessageIds.current = new Set();
     setActiveId(sessionId);
     setHandoverOpen(false);
     void loadMessages(sessionId);
-  };
+  }, [loadMessages]);
+
+  const openedFromUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!dash || typeof window === "undefined") return;
+    const sessionFromUrl = new URLSearchParams(window.location.search).get("session");
+    if (!sessionFromUrl || activeId === sessionFromUrl) return;
+    if (openedFromUrlRef.current === sessionFromUrl) return;
+    openedFromUrlRef.current = sessionFromUrl;
+    queueMicrotask(() => openSession(sessionFromUrl));
+  }, [dash, activeId, openSession]);
 
   const switchSidebarTab = (tab: "active" | "history") => {
     setSidebarTab(tab);
@@ -233,6 +248,7 @@ export default function AgentDashboardPage() {
         title: "Kasus diambil",
         body: "Sesi siap ditangani",
         type: "success",
+        href: agentSessionHref(sessionId),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Claim gagal.");
@@ -251,6 +267,7 @@ export default function AgentDashboardPage() {
         title: "Siap terima kasus",
         body: "Anda akan menerima eskalasi dari pengguna",
         type: "success",
+        href: withBasePath("/agent"),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal set ready.");
@@ -288,6 +305,7 @@ export default function AgentDashboardPage() {
         title: "Tiket dibuat",
         body: result.ticket.ticket_number,
         type: "success",
+        href: ticketHref(result.ticket.id),
       });
       await loadDashboard();
     } catch (e) {
@@ -311,6 +329,7 @@ export default function AgentDashboardPage() {
         title: "Sesi selesai",
         body: "Anda siap menerima kasus berikutnya",
         type: "success",
+        href: withBasePath("/agent"),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal menyelesaikan sesi.");
@@ -348,6 +367,7 @@ export default function AgentDashboardPage() {
         title: "Serah terima berhasil",
         body: "Sesi dialihkan ke rekan",
         type: "success",
+        href: withBasePath("/agent"),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Handover gagal.");
@@ -370,6 +390,7 @@ export default function AgentDashboardPage() {
       pushNotification({
         title: "Dikembalikan ke antrian",
         type: "success",
+        href: withBasePath("/agent"),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Handover gagal.");
@@ -405,7 +426,8 @@ export default function AgentDashboardPage() {
             <p className="text-sm font-semibold">Dashboard Implementator</p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <NotificationBell />
           <button
             type="button"
             onClick={() => void onReady()}

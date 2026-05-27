@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoggedInHeaderInfo } from "@/components/LoggedInHeaderInfo";
+import { NotificationBell } from "@/components/NotificationBell";
 import { loadAuthToken, loadAuthUser, type AuthUser } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
@@ -101,9 +102,12 @@ export default function TicketsBoardPage() {
     <main className="min-h-full bg-[#F5F5F5]">
       <header className="flex items-center justify-between bg-gradient-to-r from-[#032626] to-[#0B6463] px-4 py-3 text-white">
         <LoggedInHeaderInfo user={user} title="Board Tiket" />
-        <Link href={withBasePath("/tickets")} className="text-xs hover:underline">
-          List view
-        </Link>
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <Link href={withBasePath("/tickets")} className="text-xs hover:underline">
+            List view
+          </Link>
+        </div>
       </header>
 
       {error && (

@@ -24,6 +24,7 @@ import {
 } from "@/lib/ticket-priority";
 import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
 import { TicketDescriptionEditor } from "@/components/TicketDescriptionEditor";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -169,14 +170,17 @@ export default function TicketDetailPage() {
             <h1 className="text-lg font-semibold">{ticket.ticket_number}</h1>
             <p className="text-sm text-white/90">{ticket.title}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => void copyTicketUrl()}
-            className="shrink-0 rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
-            title="Salin link halaman tiket ini"
-          >
-            {urlCopied ? "URL tersalin" : "Salin URL"}
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <NotificationBell />
+            <button
+              type="button"
+              onClick={() => void copyTicketUrl()}
+              className="rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
+              title="Salin link halaman tiket ini"
+            >
+              {urlCopied ? "URL tersalin" : "Salin URL"}
+            </button>
+          </div>
         </div>
       </header>
 

@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { LoggedInHeaderInfo } from "@/components/LoggedInHeaderInfo";
+import { NotificationBell } from "@/components/NotificationBell";
 import { ChatReadReceipt } from "@/components/ChatReadReceipt";
 import { MessageAttachments } from "@/components/MessageAttachments";
-import { notifyNewChatMessages } from "@/lib/notify";
+import { notifyNewChatMessages, supportSessionHref } from "@/lib/notify";
 import {
   loadAuthToken,
   loadAuthUser,
@@ -115,6 +116,7 @@ export default function SupportPage() {
                 ? "Implementator IT"
                 : "Nuha Care Support",
             onlyWhenHidden: true,
+            href: supportSessionHref(sessionId),
           },
         );
       } else {
@@ -152,6 +154,14 @@ export default function SupportPage() {
 
     return () => clearInterval(interval);
   }, [activeSessionId, sessionEnded, refreshSession]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sessionFromUrl = new URLSearchParams(window.location.search).get("session");
+    if (!sessionFromUrl) return;
+    void loadSession(sessionFromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- buka sesi dari ?session= sekali saat mount
+  }, []);
 
   const loadSession = async (sessionId: string) => {
     setLoading(true);
@@ -274,7 +284,8 @@ export default function SupportPage() {
     <main className="flex min-h-full flex-col bg-[#F5F5F5]">
       <header className="flex items-center justify-between bg-gradient-to-r from-[#032626] to-[#0B6463] px-4 py-3 text-white">
         <LoggedInHeaderInfo user={user} title="Nuha Care Support" />
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <NotificationBell />
           <Link
             href={withBasePath("/tickets")}
             className="rounded-lg px-2 py-1 text-xs text-white/90 hover:bg-white/10"
