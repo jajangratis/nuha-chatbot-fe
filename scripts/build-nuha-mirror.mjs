@@ -14,6 +14,18 @@ const MIRROR = join(PUBLIC, "nuha-care", "mirror");
 const ASSET_ROOT = join(PUBLIC, "nuha-care");
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
 
+const NAV_DROPDOWN_ASSETS = [
+  "/images/svg/layanan-kami/logo_EMR.svg",
+  "/images/svg/layanan-kami/logo_SIMRS.svg",
+  "/images/svg/layanan-kami/logo_HRIS.svg",
+  "/images/svg/layanan-kami/logo_KLINIK.svg",
+  "/images/svg/layanan-kami/logo_KONSOLIDASI.svg",
+  "/images/svg/resources/logo_Blog.svg",
+  "/images/svg/resources/logo_News.svg",
+  "/images/svg/resources/logo_PusatBantuan.svg",
+  "/images/webp/faq/faqs-icon.webp",
+];
+
 const PARTNER_TILES = [
   "RS AN-Nisa",
   "RS Elim Rantepao",
@@ -226,6 +238,16 @@ async function main() {
   const html = await fetchText(`${BASE}/`);
   console.log("Syncing /images from homepage…");
   await syncImagesFromHtml(html);
+  console.log("Syncing nav dropdown icons…");
+  for (const path of NAV_DROPDOWN_ASSETS) {
+    const dest = join(ASSET_ROOT, path.replace(/^\//, ""));
+    try {
+      const size = await fetchBinary(`${BASE}${path}`, dest);
+      console.log(`  nav ${String(size).padStart(7)} ${path}`);
+    } catch (e) {
+      console.warn(`  skip nav ${path}:`, e.message);
+    }
+  }
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   if (!bodyMatch) throw new Error("No <body> in homepage");
 
@@ -253,22 +275,8 @@ async function main() {
     await downloadCss(hrefM[1], name);
   }
 
-  const overrides = `/* Clone overrides — nuha-chatbot-fe */
-.nuha-clone-root {
-  isolation: isolate;
-  font-family: var(--font-montserrat), Montserrat, Arial, sans-serif;
-}
-.nuha-clone-root a[href^="https://nuha.care"] {
-  pointer-events: auto;
-}
-.nuha-clone-root [data-slot="carousel"] {
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-}
-.nuha-clone-root [data-slot="carousel-content"] > .flex {
-  scroll-snap-align: start;
-}
-`;
+  const overridesSrc = join(ROOT, "src", "styles", "nuha-clone-overrides.css");
+  const overrides = await readFile(overridesSrc, "utf8");
   await writeFile(join(MIRROR, "clone-overrides.css"), overrides);
 
   const manifest = {

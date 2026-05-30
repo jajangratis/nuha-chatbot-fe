@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type RefObject } from "react";
+import { mountDesktopNavDropdowns } from "@/lib/nuha-nav-dropdown";
 
 /** Interaktivitas minimal untuk HTML clone nuha.care (menu mobile, dropdown nav). */
 export function useNuhaCloneUi(
@@ -11,6 +12,8 @@ export function useNuhaCloneUi(
     if (!active) return;
     const root = rootRef.current;
     if (!root) return;
+
+    const teardownDropdowns = mountDesktopNavDropdowns(root);
 
     const mobileOpenBtn = root.querySelector('[aria-label="Open menu"]');
     const mobileCloseBtn = root.querySelector('[aria-label="Close menu"]');
@@ -34,32 +37,13 @@ export function useNuhaCloneUi(
     mobileCloseBtn?.addEventListener("click", closeMenu);
     mobileOverlay?.addEventListener("click", closeMenu);
 
-    const dropdownTriggers = root.querySelectorAll(
-      "[data-slot='navigation-menu-trigger']",
-    );
     const cleanups: (() => void)[] = [];
-
-    dropdownTriggers.forEach((trigger) => {
-      const onClick = (e: Event) => {
-        e.preventDefault();
-        const expanded = trigger.getAttribute("aria-expanded") === "true";
-        trigger.setAttribute("aria-expanded", expanded ? "false" : "true");
-        const contentId = trigger.getAttribute("aria-controls");
-        if (!contentId) return;
-        const content = root.querySelector(`#${CSS.escape(contentId)}`);
-        if (content instanceof HTMLElement) {
-          content.hidden = expanded;
-        }
-      };
-      trigger.addEventListener("click", onClick);
-      cleanups.push(() => trigger.removeEventListener("click", onClick));
-    });
 
     const testimonialSection = root.querySelector("#testimoni");
     let testimonialTimer: ReturnType<typeof setInterval> | undefined;
     if (testimonialSection) {
       const slides = testimonialSection.querySelectorAll(
-        "[data-slot='carousel-item'], .min-h-\\[220px\\] article, article",
+        "[data-slot='carousel-item']",
       );
       if (slides.length > 1) {
         let idx = 0;
@@ -80,7 +64,9 @@ export function useNuhaCloneUi(
     root.querySelectorAll("button").forEach((btn) => {
       if (!btn.closest(".max-w-sm")) return;
       const label = btn.textContent?.trim() ?? "";
-      if (!label.startsWith("Layanan Kami") && !label.startsWith("Resources")) return;
+      if (!label.startsWith("Layanan Kami") && !label.startsWith("Resources")) {
+        return;
+      }
       const panel = btn.nextElementSibling;
       if (!(panel instanceof HTMLElement)) return;
       const onToggle = (e: Event) => {
@@ -97,6 +83,7 @@ export function useNuhaCloneUi(
     });
 
     return () => {
+      teardownDropdowns();
       mobileOpenBtn?.removeEventListener("click", openMenu);
       mobileCloseBtn?.removeEventListener("click", closeMenu);
       mobileOverlay?.removeEventListener("click", closeMenu);

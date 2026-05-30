@@ -14,6 +14,23 @@ const MIRROR = join(ASSET_ROOT, "mirror");
 const PUBLIC = join(ROOT, "public");
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
 
+const NAV_DROPDOWN_ASSETS = [
+  "/images/svg/layanan-kami/logo_EMR.svg",
+  "/images/svg/layanan-kami/logo_SIMRS.svg",
+  "/images/svg/layanan-kami/logo_HRIS.svg",
+  "/images/svg/layanan-kami/logo_KLINIK.svg",
+  "/images/svg/layanan-kami/logo_KONSOLIDASI.svg",
+  "/images/svg/resources/logo_Blog.svg",
+  "/images/svg/resources/logo_News.svg",
+  "/images/svg/resources/logo_PusatBantuan.svg",
+  "/images/webp/faq/faqs-icon.webp",
+  "/images/svg/section-three-list/item1.svg",
+  "/images/svg/section-three-list/item2.svg",
+  "/images/svg/section-three-list/item3.svg",
+  "/images/svg/section-three-list/item4.svg",
+  "/images/svg/section-three-list/item5.svg",
+];
+
 const STATIC_ASSETS = [
   "/images/svg/logo.svg",
   "/images/svg/logo_white.svg",
@@ -82,7 +99,7 @@ async function downloadFontToMirror(fontPath) {
 }
 
 async function main() {
-  const paths = new Set(STATIC_ASSETS);
+  const paths = new Set([...STATIC_ASSETS, ...NAV_DROPDOWN_ASSETS]);
 
   try {
     const home = await fetch(BASE + "/", { headers: { "User-Agent": UA } }).then((r) =>
