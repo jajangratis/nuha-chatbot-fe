@@ -1,0 +1,15 @@
+/* Clone overrides — nuha-chatbot-fe */
+.nuha-clone-root {
+  isolation: isolate;
+  font-family: var(--font-montserrat), Montserrat, Arial, sans-serif;
+}
+.nuha-clone-root a[href^="https://nuha.care"] {
+  pointer-events: auto;
+}
+.nuha-clone-root [data-slot="carousel"] {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+.nuha-clone-root [data-slot="carousel-content"] > .flex {
+  scroll-snap-align: start;
+}

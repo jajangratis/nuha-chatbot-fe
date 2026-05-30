@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { GuestSupportChat } from "@/components/GuestSupportChat";
-import { NuhaSiteEmbed } from "@/components/NuhaSiteEmbed";
+import { NuhaLanding } from "@/components/NuhaLanding";
 import { useAuthSession } from "@/hooks/use-auth-session";
 import { withBasePath } from "@/lib/app-path";
 
@@ -38,7 +38,7 @@ export function HomeEntry() {
 
   return (
     <>
-      <NuhaSiteEmbed />
+      <NuhaLanding />
       <GuestSupportChat />
     </>
   );

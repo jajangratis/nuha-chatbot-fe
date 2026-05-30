@@ -32,27 +32,22 @@ export const NUHA_SERVICES = [
   {
     title: "Nuha EMR",
     desc: "Transformasi Digital Rekam Medis Rumah Sakit, Lebih Cepat, Aman, dan Terintegrasi.",
-    href: "https://nuha.care/client/layanan-kami/emr",
   },
   {
     title: "Nuha SIMRS",
     desc: "Pusat Kendali Operasional Rumah Sakit yang Terintegrasi dan Efisien.",
-    href: "https://nuha.care/client/layanan-kami/simrs",
   },
   {
     title: "Nuha HRIS",
     desc: "Transformasi Digital SDM Rumah Sakit dan Perusahaan Anda.",
-    href: "https://nuha.care/client/layanan-kami/hris",
   },
   {
     title: "Nuha Klinik",
     desc: "Optimalkan Pelayanan Klinik Anda dengan Sistem Informasi Terpadu.",
-    href: "https://nuha.care/client/layanan-kami/klinik",
   },
   {
     title: "Nuha Konsolidasi",
     desc: "Satu Platform Akuntansi Terintegrasi untuk Grup Rumah Sakit dan Klinik.",
-    href: "https://nuha.care/client/layanan-kami/konsolidasi",
   },
 ] as const;
 
@@ -90,46 +85,56 @@ export const NUHA_PROBLEMS = [
 export const NUHA_SOLUTIONS = [
   {
     title: "Otomatisasi Casemix",
-    desc: "NUHA menghadirkan fitur otomatisasi penuh proses Casemix untuk mempercepat klaim JKN.",
+    desc: "NUHA menghadirkan fitur otomatisasi penuh proses Casemix, mulai dari input hingga pelaporan, untuk mempercepat proses klaim JKN dan meminimalkan kesalahan administratif.",
   },
   {
     title: "Sistem Selalu Update Sesuai Regulasi",
-    desc: "Arsitektur fleksibel dan tim pengembang siaga menyesuaikan perubahan regulasi Kemenkes & BPJS.",
+    desc: "NUHA dibangun dengan arsitektur fleksibel dan tim pengembang yang siaga, sehingga dapat merespons dan menyesuaikan sistem secara cepat terhadap perubahan regulasi dari Kemenkes, BPJS, atau lembaga terkait.",
   },
   {
     title: "Notifikasi Harga Obat Melebihi Batas Klaim",
-    desc: "Pengendalian pengeluaran obat melalui notifikasi otomatis saat resep melebihi batas klaim.",
+    desc: "NUHA menyediakan fitur pengendalian pengeluaran obat melalui sistem notifikasi otomatis yang aktif saat nilai resep melebihi batas maksimal klaim berdasarkan kelompok diagnosis (INA-CBG) atau skema asuransi.",
   },
   {
     title: "Digitalisasi Pendaftaran Pasien — APM & Mobile JKN",
-    desc: "Pendaftaran digital terintegrasi untuk mengurangi antrean dan kesalahan data.",
+    desc: "Pendaftaran digital terintegrasi dengan APM dan Mobile JKN untuk mengurangi antrean, kesalahan data, dan duplikasi rekam medis.",
   },
   {
     title: "Otomatisasi Billing Rumah Sakit",
-    desc: "Billing terintegrasi dan otomatis dari pendaftaran hingga pembayaran.",
+    desc: "NUHA menyediakan sistem billing terintegrasi dan otomatis untuk seluruh unit pelayanan, mulai dari pendaftaran hingga pembayaran, guna menghilangkan ketergantungan pada pencatatan manual.",
   },
 ] as const;
 
 export const NUHA_TESTIMONIALS = [
   {
     quote:
-      "Tampilan Klinik-nya sangat baik, mudah digunakan, dan benar-benar membantu dalam operasional. Kami juga menggunakan NUHA Klinik, dan tampilannya yang simpel membuat navigasi jadi lebih mudah.",
+      "Tampilan Klinik-nya sangat baik, mudah digunakan, dan benar-benar membantu dalam operasional. Fitur untuk mengganti tema sesuai warna pilihan juga memudahkan personalisasi. Kami juga menggunakan NUHA Klinik, dan tampilannya yang simpel membuat navigasi jadi lebih mudah.",
     name: "dr. Pusposari Purwoko, MARS",
     role: "Manajer IGD dan Rajal RS AN-Nisa Tangerang",
+    avatar: "/images/svg/user_profile1.svg",
   },
   {
     quote:
       "Sistem NUHA sangat membantu kami dalam pengelolaan manajemen operasional di RS Elim Rantepao, berkat tampilan yang user-friendly dan mudah digunakan.",
     name: "dr. Adrian B. Wijaya, MARS",
     role: "Direktur Rumah Sakit Elim Rantepao",
+    avatar: "/images/jpeg/dr_adrian.jpeg",
   },
   {
     quote:
       "NUHA fiturnya udah lengkap banget dari asessmen sampai resume medis yang sering jadi masalah, tapi di NUHA semuanya lancar, sangat membantu rumah sakit kami",
     name: "dr. Ni Wayan Ari Aninditha, MARS",
     role: "Rumah Sakit Ari Canti Bali",
+    avatar: "/images/jpeg/dr_wayan.jpeg",
   },
 ] as const;
+
+/** Teks pendukung mitra (section fitur / nuha.care) */
+export const NUHA_MITRA_SUPPORT =
+  "Kami mendampingi setiap mitra kami di seluruh Indonesia melalui implementasi sistem yang terstruktur, pelatihan berkelanjutan, dan dukungan teknis yang responsif—agar setiap rumah sakit dapat bertransformasi secara digital dengan percaya diri dan berkelanjutan.";
+
+export const NUHA_SATISFACTION_BLURB =
+  "Dipercaya oleh tenaga kesehatan dan rumah sakit di Seluruh Indonesia — NUHA meraih tingkat kepuasan pengguna sebesar 98,55%. Solusi SIMRS EMR yang terbukti inovatif, terpadu, dan efisien.";
 
 export const NUHA_PARTNER_HOSPITALS = [
   "RS AN-Nisa Tangerang",

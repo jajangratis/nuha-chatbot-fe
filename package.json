@@ -6,7 +6,9 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "download-nuha-assets": "node scripts/download-nuha-assets.mjs",
+    "build-nuha-mirror": "node scripts/build-nuha-mirror.mjs"
   },
   "dependencies": {
     "next": "16.2.6",

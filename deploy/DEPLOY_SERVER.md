@@ -54,7 +54,7 @@ Harus JSON `tickets`, bukan HTML.
 ### 5. Browser
 
 - Login di **origin yang sama**: `http://103.67.244.236/login`
-- Staff: `/agent` atau `/tickets` (bukan hanya `/` — beranda = iframe nuha.care)
+- Staff: `/agent` atau `/tickets` (bukan hanya `/` — beranda = landing clone + chat tamu)
 - Hard refresh setelah deploy
 
 ## Nginx (mylab → app)
