@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { loadAuthToken, loadAuthUser, type AuthUser } from "@/lib/auth-api";
+import {
+  defaultHubPathForUser,
+  loadAuthToken,
+  loadAuthUser,
+  type AuthUser,
+} from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import { AssigneeSearchSelect } from "@/components/AssigneeSearchSelect";
 import {
@@ -24,7 +29,10 @@ import {
 } from "@/lib/ticket-priority";
 import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
 import { TicketDescriptionEditor } from "@/components/TicketDescriptionEditor";
+import { NuhaCareLogo } from "@/components/NuhaCareLogo";
 import { NotificationBell } from "@/components/NotificationBell";
+import { UserAccountMenu, UserMenuLink } from "@/components/UserAccountMenu";
+import { logout } from "@/lib/auth-api";
 
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -156,15 +164,12 @@ export default function TicketDetailPage() {
   return (
     <main className="min-h-full bg-[#F5F5F5]">
       <header className="bg-gradient-to-r from-[#032626] to-[#0B6463] px-4 py-3 text-white">
-        <Link href={withBasePath("/tickets")} className="text-xs text-white/80 hover:underline">
-          ← Daftar tiket
-        </Link>
-        {user && (
-          <p className="mt-2 text-xs text-white/80">
-            Login sebagai{" "}
-            <span className="font-medium text-white">{user.display_name}</span>
-          </p>
-        )}
+        <div className="flex items-center gap-3">
+          <NuhaCareLogo href={defaultHubPathForUser(user)} />
+          <Link href={withBasePath("/tickets")} className="text-xs text-white/80 hover:underline">
+            ← Daftar tiket
+          </Link>
+        </div>
         <div className="mt-1 flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-semibold">{ticket.ticket_number}</h1>
@@ -172,6 +177,21 @@ export default function TicketDetailPage() {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <NotificationBell />
+            <UserAccountMenu
+              user={user}
+              onLogout={() => {
+                logout();
+                router.push(withBasePath("/login"));
+              }}
+            >
+              <UserMenuLink href={withBasePath("/tickets")}>Daftar tiket</UserMenuLink>
+              {user?.role !== "user" && (
+                <UserMenuLink href={withBasePath("/agent")}>Chat implementator</UserMenuLink>
+              )}
+              {user?.role === "user" && (
+                <UserMenuLink href={withBasePath("/support")}>Support chat</UserMenuLink>
+              )}
+            </UserAccountMenu>
             <button
               type="button"
               onClick={() => void copyTicketUrl()}

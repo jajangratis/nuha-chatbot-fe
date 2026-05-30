@@ -46,17 +46,32 @@ function ticketsFetch<T>(path: string, options: RequestInit = {}) {
   return supportHubFetch<T>(path, options);
 }
 
+export type TicketsPagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
 export async function fetchTickets(params?: {
   status?: string;
   priority?: string;
   module?: string;
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+  limit?: number;
 }) {
   const q = new URLSearchParams();
   if (params?.status) q.set("status", params.status);
   if (params?.priority) q.set("priority", params.priority);
   if (params?.module) q.set("module", params.module);
+  if (params?.date_from) q.set("date_from", params.date_from);
+  if (params?.date_to) q.set("date_to", params.date_to);
+  if (params?.page != null) q.set("page", String(params.page));
+  if (params?.limit != null) q.set("limit", String(params.limit));
   const qs = q.toString();
-  return ticketsFetch<{ tickets: Ticket[] }>(
+  return ticketsFetch<{ tickets: Ticket[]; pagination?: TicketsPagination }>(
     `tickets${qs ? `?${qs}` : ""}`,
     { method: "GET" },
   );
@@ -96,6 +111,33 @@ export async function sendTicketChatMessage(ticketId: string, message: string) {
     method: "POST",
     body: JSON.stringify({ message }),
   });
+}
+
+export async function uploadTicketChatMessage(
+  ticketId: string,
+  message: string,
+  files: File[],
+) {
+  const token = loadAuthToken();
+  if (!token) throw new Error("Silakan login terlebih dahulu.");
+
+  const fd = new FormData();
+  if (message.trim()) fd.append("message", message.trim());
+  for (const file of files) {
+    fd.append("files", file);
+  }
+
+  const res = await fetch(withBasePath(`/api/v1/tickets/${ticketId}/messages`), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: fd,
+  });
+
+  const data = (await res.json()) as { message?: TicketChatMessage; error?: string };
+  if (!res.ok || !data.message) {
+    throw new Error(data.error ?? `Permintaan gagal (${res.status})`);
+  }
+  return { message: data.message };
 }
 
 export async function fetchAssignableUsers() {

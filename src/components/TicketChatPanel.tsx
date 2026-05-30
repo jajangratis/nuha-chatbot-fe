@@ -1,10 +1,15 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { MessageAttachments } from "@/components/MessageAttachments";
 import { formatAssigneeRole } from "@/lib/tickets-api";
-import { sendTicketChatMessage, type TicketChatMessage } from "@/lib/tickets-api";
+import {
+  sendTicketChatMessage,
+  uploadTicketChatMessage,
+  type TicketChatMessage,
+} from "@/lib/tickets-api";
 
 type Props = {
   ticketId: string;
@@ -51,13 +56,16 @@ export function TicketChatPanel({
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!text.trim() || !chatOpen) return;
+  const onSend = async (message: string, files: File[]) => {
+    if ((!message.trim() && !files.length) || !chatOpen) return;
     setSending(true);
     setSendError(null);
     try {
-      await sendTicketChatMessage(ticketId, text.trim());
+      if (files.length > 0) {
+        await uploadTicketChatMessage(ticketId, message, files);
+      } else {
+        await sendTicketChatMessage(ticketId, message.trim());
+      }
       setText("");
       onSent();
     } catch (err) {
@@ -79,12 +87,17 @@ export function TicketChatPanel({
           <div key={m.id} className={`rounded-lg px-2 py-1.5 ${bubbleClass(m.role)}`}>
             <p className="text-[10px] font-medium text-[#717171]">{messageLabel(m)}</p>
             {m.role === "assistant" ? (
-              <ChatMarkdown content={m.content} />
+              <>
+                <ChatMarkdown content={m.content} />
+                <MessageAttachments metadata={m.metadata} />
+              </>
             ) : m.role === "system" ? (
               <p className="whitespace-pre-wrap">{m.content}</p>
             ) : (
               <>
-                <p className="whitespace-pre-wrap">{m.content}</p>
+                {m.content.trim() ? (
+                  <p className="whitespace-pre-wrap">{m.content}</p>
+                ) : null}
                 <MessageAttachments metadata={m.metadata} />
               </>
             )}
@@ -105,24 +118,15 @@ export function TicketChatPanel({
       )}
 
       {chatOpen ? (
-        <form onSubmit={(e) => void onSubmit(e)} className="mt-3 shrink-0 border-t border-[#E8E8E8] pt-3">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={2}
-            placeholder="Kirim pesan ke tiket ini…"
-            className="w-full resize-none rounded-lg border border-[#E8E8E8] px-3 py-2 text-sm focus:border-[#07C5BA] focus:outline-none"
-          />
-          <div className="mt-2 flex justify-end">
-            <button
-              type="submit"
-              disabled={sending || !text.trim()}
-              className="rounded-lg bg-[#014547] px-4 py-1.5 text-xs text-white disabled:opacity-50"
-            >
-              {sending ? "Mengirim…" : "Kirim"}
-            </button>
-          </div>
-        </form>
+        <ChatComposer
+          value={text}
+          onChange={setText}
+          onSend={onSend}
+          disabled={!chatOpen}
+          loading={sending}
+          placeholder="Kirim pesan atau lampirkan gambar…"
+          className="mt-3 shrink-0 border-t border-[#E8E8E8] pt-3"
+        />
       ) : (
         <p className="mt-3 shrink-0 border-t border-[#E8E8E8] pt-3 text-xs text-[#717171]">
           Chat ditutup karena tiket sudah selesai atau ditutup.

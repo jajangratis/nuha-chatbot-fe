@@ -102,6 +102,28 @@ export function logout() {
   clearAuth();
 }
 
+/** Inisial avatar: huruf pertama display_name atau username (kapital). */
+/** Halaman utama setelah klik logo (sesuai peran). */
+export function defaultHubPathForUser(user: AuthUser | null | undefined): string {
+  if (!user) return "/";
+  switch (user.role) {
+    case "user":
+      return "/support";
+    case "agent":
+    case "admin":
+      return "/agent";
+    case "developer":
+      return "/tickets";
+    default:
+      return "/";
+  }
+}
+
+export function userAvatarInitial(user: Pick<AuthUser, "display_name" | "username">): string {
+  const src = user.display_name?.trim() || user.username?.trim() || "?";
+  return src.charAt(0).toUpperCase();
+}
+
 export function formatAuthRole(role: AuthUser["role"]): string {
   switch (role) {
     case "agent":

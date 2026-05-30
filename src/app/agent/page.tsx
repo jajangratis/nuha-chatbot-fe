@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { ChatReadReceipt } from "@/components/ChatReadReceipt";
-import { LoggedInHeaderInfo } from "@/components/LoggedInHeaderInfo";
+import { SupportHubHeader } from "@/components/SupportHubHeader";
+import { UserAccountMenu, UserMenuLink } from "@/components/UserAccountMenu";
 import { NotificationBell } from "@/components/NotificationBell";
 import { MessageAttachments } from "@/components/MessageAttachments";
 import { SessionLastUserReply } from "@/components/SessionLastUserReply";
@@ -414,46 +415,29 @@ export default function AgentDashboardPage() {
 
   return (
     <main className="flex min-h-full flex-col bg-[#F5F5F5]">
-      <header className="flex items-center justify-between bg-gradient-to-r from-[#032626] to-[#0B6463] px-4 py-3 text-white">
-        <div>
-          {authUser ? (
-            <LoggedInHeaderInfo
-              user={authUser}
-              title="Dashboard Implementator"
-              subtitle={`Status: ${dash?.presence.status ?? "…"} · Sesi aktif: ${dash?.presence.active_sessions ?? 0}`}
-            />
-          ) : (
-            <p className="text-sm font-semibold">Dashboard Implementator</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <NotificationBell />
-          <button
-            type="button"
-            onClick={() => void onReady()}
-            disabled={busy}
-            className="rounded-lg bg-white/15 px-3 py-1 text-xs hover:bg-white/25 disabled:opacity-50"
-          >
-            {actionLoading === "ready" ? "Menyiapkan…" : "Siap terima kasus"}
-          </button>
-          <Link href={withBasePath("/tickets")} className="rounded-lg px-2 py-1 text-xs hover:bg-white/10">
-            Tiket
-          </Link>
-          <Link href={withBasePath("/")} className="rounded-lg px-2 py-1 text-xs hover:bg-white/10">
-            Home
-          </Link>
-          <button
-            type="button"
-            onClick={() => {
-              logout();
-              router.push(withBasePath("/login"));
-            }}
-            className="rounded-lg px-2 py-1 text-xs hover:bg-white/10"
-          >
-            Keluar
-          </button>
-        </div>
-      </header>
+      <SupportHubHeader title="Dashboard Implementator" user={authUser}>
+        <NotificationBell />
+        <button
+          type="button"
+          onClick={() => void onReady()}
+          disabled={busy}
+          className="rounded-lg bg-white/15 px-3 py-1 text-xs hover:bg-white/25 disabled:opacity-50"
+        >
+          {actionLoading === "ready" ? "Menyiapkan…" : "Siap terima kasus"}
+        </button>
+        <UserAccountMenu
+          user={authUser}
+          statusLine={`Status: ${dash?.presence.status ?? "…"} · Sesi aktif: ${dash?.presence.active_sessions ?? 0}`}
+          onLogout={() => {
+            logout();
+            router.push(withBasePath("/login"));
+          }}
+        >
+          <UserMenuLink href={withBasePath("/tickets")}>Tiket gangguan</UserMenuLink>
+          <UserMenuLink href={withBasePath("/tickets/board")}>Board tiket</UserMenuLink>
+          <UserMenuLink href={withBasePath("/")}>Beranda tamu</UserMenuLink>
+        </UserAccountMenu>
+      </SupportHubHeader>
 
       {error && (
         <p className="bg-amber-50 px-4 py-2 text-sm text-amber-900">{error}</p>

@@ -18,6 +18,62 @@ const MAX_ITEMS = 40;
 let items: AppNotification[] = [];
 const listeners = new Set<Listener>();
 
+/** Popup sementara — terpisah dari daftar lonceng (tidak mengikuti status unread). */
+let toasts: AppNotification[] = [];
+const toastListeners = new Set<Listener>();
+const toastTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+const TOAST_AUTO_DISMISS_MS = 6_000;
+const MAX_TOASTS = 3;
+
+function emitToasts() {
+  const snapshot = toasts;
+  queueMicrotask(() => {
+    toastListeners.forEach((fn) => fn(snapshot));
+  });
+}
+
+function scheduleToastDismiss(id: string) {
+  const prev = toastTimers.get(id);
+  if (prev) clearTimeout(prev);
+  const t = setTimeout(() => {
+    toastTimers.delete(id);
+    dismissToast(id);
+  }, TOAST_AUTO_DISMISS_MS);
+  toastTimers.set(id, t);
+}
+
+export function subscribeToasts(fn: (items: AppNotification[]) => void) {
+  toastListeners.add(fn);
+  fn(toasts);
+  return () => {
+    toastListeners.delete(fn);
+  };
+}
+
+export function showToast(item: AppNotification) {
+  toasts = [item, ...toasts.filter((t) => t.id !== item.id)].slice(0, MAX_TOASTS);
+  emitToasts();
+  scheduleToastDismiss(item.id);
+}
+
+export function dismissToast(id: string) {
+  const timer = toastTimers.get(id);
+  if (timer) {
+    clearTimeout(timer);
+    toastTimers.delete(id);
+  }
+  toasts = toasts.filter((t) => t.id !== id);
+  emitToasts();
+}
+
+export function dismissAllToasts() {
+  for (const timer of toastTimers.values()) clearTimeout(timer);
+  toastTimers.clear();
+  toasts = [];
+  emitToasts();
+}
+
 function loadStored(): AppNotification[] {
   if (typeof window === "undefined") return [];
   try {
@@ -77,18 +133,21 @@ export function getUnreadNotificationCount() {
 }
 
 export function dismissNotification(id: string) {
+  dismissToast(id);
   ensureHydrated();
   items = items.filter((n) => n.id !== id);
   emit();
 }
 
 export function markNotificationRead(id: string) {
+  dismissToast(id);
   ensureHydrated();
   items = items.map((n) => (n.id === id ? { ...n, read: true } : n));
   emit();
 }
 
 export function markAllNotificationsRead() {
+  dismissAllToasts();
   ensureHydrated();
   items = items.map((n) => ({ ...n, read: true }));
   emit();
@@ -124,6 +183,9 @@ export function syncServerNotifications(
   }[],
 ) {
   ensureHydrated();
+  const prevServerIds = new Set(
+    items.filter((n) => isServerNotificationId(n.id)).map((n) => n.id),
+  );
   const localOnly = items.filter((n) => !isServerNotificationId(n.id));
   const fromServer = serverItems.map((n) => ({
     id: serverNotificationId(n.id),
@@ -141,6 +203,12 @@ export function syncServerNotifications(
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, MAX_ITEMS);
   emit();
+
+  for (const n of items) {
+    if (isServerNotificationId(n.id) && !prevServerIds.has(n.id) && !n.read) {
+      showToast(n);
+    }
+  }
 }
 
 export function pushNotification(
@@ -164,6 +232,10 @@ export function pushNotification(
 
   items = [item, ...items.filter((n) => n.id !== item.id)].slice(0, MAX_ITEMS);
   emit();
+
+  if (!item.read) {
+    showToast(item);
+  }
 
   if (options?.browser !== false && typeof window !== "undefined" && "Notification" in window) {
     if (Notification.permission === "granted") {

@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
-import { LoggedInHeaderInfo } from "@/components/LoggedInHeaderInfo";
+import { SupportHubHeader } from "@/components/SupportHubHeader";
+import { UserAccountMenu, UserMenuLink } from "@/components/UserAccountMenu";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ChatReadReceipt } from "@/components/ChatReadReceipt";
 import { MessageAttachments } from "@/components/MessageAttachments";
@@ -282,31 +283,13 @@ export default function SupportPage() {
 
   return (
     <main className="flex min-h-full flex-col bg-[#F5F5F5]">
-      <header className="flex items-center justify-between bg-gradient-to-r from-[#032626] to-[#0B6463] px-4 py-3 text-white">
-        <LoggedInHeaderInfo user={user} title="Nuha Care Support" />
-        <div className="flex items-center gap-2">
-          <NotificationBell />
-          <Link
-            href={withBasePath("/tickets")}
-            className="rounded-lg px-2 py-1 text-xs text-white/90 hover:bg-white/10"
-          >
-            Tiket saya
-          </Link>
-          <Link
-            href={withBasePath("/")}
-            className="rounded-lg px-2 py-1 text-xs text-white/90 hover:bg-white/10"
-          >
-            Tamu
-          </Link>
-          <button
-            type="button"
-            onClick={onLogout}
-            className="rounded-lg px-2 py-1 text-xs text-white/90 hover:bg-white/10"
-          >
-            Keluar
-          </button>
-        </div>
-      </header>
+      <SupportHubHeader title="Nuha Care Support" user={user}>
+        <NotificationBell />
+        <UserAccountMenu user={user} onLogout={onLogout}>
+          <UserMenuLink href={withBasePath("/tickets")}>Tiket saya</UserMenuLink>
+          <UserMenuLink href={withBasePath("/")}>Beranda tamu</UserMenuLink>
+        </UserAccountMenu>
+      </SupportHubHeader>
 
       {error && (
         <p className="bg-amber-50 px-4 py-2 text-sm text-amber-900">{error}</p>

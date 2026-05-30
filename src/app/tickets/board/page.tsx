@@ -3,20 +3,28 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoggedInHeaderInfo } from "@/components/LoggedInHeaderInfo";
+import { SupportHubHeader } from "@/components/SupportHubHeader";
+import { UserAccountMenu, UserMenuLink } from "@/components/UserAccountMenu";
+import { logout } from "@/lib/auth-api";
 import { NotificationBell } from "@/components/NotificationBell";
 import { loadAuthToken, loadAuthUser, type AuthUser } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
+import {
+  filterControlClass,
+  TicketFilterCard,
+  TicketFilterField,
+  TicketFilterHint,
+  TicketFilterResetButton,
+} from "@/components/TicketFilterPanel";
 import { fetchTickets, patchTicket, type Ticket } from "@/lib/tickets-api";
-
-const COLUMNS = [
-  { key: "new", label: "Baru" },
-  { key: "assigned", label: "Ditugaskan" },
-  { key: "in_progress", label: "Dikerjakan" },
-  { key: "waiting_user", label: "Tunggu user" },
-  { key: "resolved", label: "Selesai" },
-] as const;
+import {
+  getTicketStatusTheme,
+  isKnownTicketStatus,
+  TICKET_STATUS_ORDER,
+  TICKET_STATUS_OTHER_THEME,
+  type TicketStatusTheme,
+} from "@/lib/ticket-status-theme";
 
 const TICKET_ID_MIME = "application/x-nuha-ticket-id";
 
@@ -29,11 +37,16 @@ export default function TicketsBoardPage() {
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const reload = useCallback(async () => {
-    const data = await fetchTickets();
+    const params: { date_from?: string; date_to?: string } = {};
+    if (dateFrom) params.date_from = dateFrom;
+    if (dateTo) params.date_to = dateTo;
+    const data = await fetchTickets(params);
     setTickets(data.tickets);
-  }, []);
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     const token = loadAuthToken();
@@ -98,23 +111,98 @@ export default function TicketsBoardPage() {
     if (ticketId) void moveTicket(ticketId, columnKey);
   };
 
+  const boardColumns: {
+    key: string;
+    theme: TicketStatusTheme;
+    tickets: Ticket[];
+    droppable: boolean;
+  }[] = TICKET_STATUS_ORDER.map((key) => ({
+    key,
+    theme: getTicketStatusTheme(key),
+    tickets: tickets.filter((t) => t.status === key),
+    droppable: true,
+  }));
+
+  if (tickets.some((t) => !isKnownTicketStatus(t.status))) {
+    boardColumns.push({
+      key: "__other__",
+      theme: TICKET_STATUS_OTHER_THEME,
+      tickets: tickets.filter((t) => !isKnownTicketStatus(t.status)),
+      droppable: false,
+    });
+  }
+
   return (
     <main className="min-h-full bg-[#F5F5F5]">
-      <header className="flex items-center justify-between bg-gradient-to-r from-[#032626] to-[#0B6463] px-4 py-3 text-white">
-        <LoggedInHeaderInfo user={user} title="Board Tiket" />
-        <div className="flex items-center gap-2">
-          <NotificationBell />
-          <Link href={withBasePath("/tickets")} className="text-xs hover:underline">
-            List view
-          </Link>
-        </div>
-      </header>
+      <SupportHubHeader title="Board Tiket" user={user}>
+        <NotificationBell />
+        <Link
+          href={withBasePath("/tickets")}
+          className="rounded-lg px-2 py-1 text-xs hover:bg-white/10"
+        >
+          List
+        </Link>
+        <UserAccountMenu
+          user={user}
+          onLogout={() => {
+            logout();
+            router.push(withBasePath("/login"));
+          }}
+        >
+          {user?.role !== "user" && (
+            <UserMenuLink href={withBasePath("/agent")}>Chat implementator</UserMenuLink>
+          )}
+          {user?.role === "user" && (
+            <UserMenuLink href={withBasePath("/support")}>Support chat</UserMenuLink>
+          )}
+        </UserAccountMenu>
+      </SupportHubHeader>
 
       {error && (
         <p className="bg-amber-50 px-4 py-2 text-sm text-amber-900">{error}</p>
       )}
 
-      <p className="px-4 pt-3 text-xs text-[#717171]">
+      <div className="px-4 pt-3">
+        <TicketFilterCard
+          footer={
+            <>
+              <TicketFilterResetButton
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+              />
+              <TicketFilterHint>
+                Filter tanggal dibuat · diterapkan otomatis
+                {(dateFrom || dateTo) && !loading
+                  ? ` · ${tickets.length} tiket ditampilkan`
+                  : ""}
+              </TicketFilterHint>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <TicketFilterField label="Tanggal awal">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className={filterControlClass}
+              />
+            </TicketFilterField>
+            <TicketFilterField label="Tanggal akhir">
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className={filterControlClass}
+              />
+            </TicketFilterField>
+          </div>
+        </TicketFilterCard>
+      </div>
+
+      <p className="px-4 pt-2 text-xs text-[#717171]">
         Seret kartu tiket ke kolom status untuk memperbarui. Lepas di atas kolom tujuan.
       </p>
 
@@ -122,24 +210,35 @@ export default function TicketsBoardPage() {
         <p className="p-4 text-sm text-[#717171]">Memuat board…</p>
       ) : (
         <div className="flex gap-3 overflow-x-auto p-4">
-          {COLUMNS.map((col) => {
-            const colTickets = tickets.filter((t) => t.status === col.key);
-            const isOver = overColumn === col.key && draggingId != null;
+          {boardColumns.map((col) => {
+            const { key: colKey, theme, tickets: colTickets, droppable } = col;
+            const isOver =
+              droppable && overColumn === colKey && draggingId != null;
 
             return (
               <div
-                key={col.key}
-                onDragOver={(e) => handleColumnDragOver(e, col.key)}
-                onDrop={(e) => handleColumnDrop(e, col.key)}
-                className={`w-64 shrink-0 rounded-xl border bg-white transition-colors ${
+                key={colKey}
+                onDragOver={
+                  droppable
+                    ? (e) => handleColumnDragOver(e, colKey)
+                    : undefined
+                }
+                onDrop={
+                  droppable ? (e) => handleColumnDrop(e, colKey) : undefined
+                }
+                className={`w-56 shrink-0 overflow-hidden rounded-xl border border-l-4 bg-white transition-colors ${theme.sectionAccent} ${
                   isOver
                     ? "border-[#07C5BA] bg-[#07C5BA]/5 ring-2 ring-[#07C5BA]/40"
                     : "border-[#E8E8E8]"
                 }`}
               >
-                <h2 className="flex items-center justify-between border-b px-3 py-2 text-xs font-semibold text-[#014547]">
-                  <span>{col.label}</span>
-                  <span className="rounded-full bg-[#F0F0F0] px-1.5 py-0.5 text-[10px] font-normal text-[#717171]">
+                <h2
+                  className={`flex items-center justify-between px-3 py-2 text-xs font-semibold ${theme.header}`}
+                >
+                  <span>{theme.label}</span>
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${theme.count}`}
+                  >
                     {colTickets.length}
                   </span>
                 </h2>

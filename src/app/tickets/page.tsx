@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoggedInHeaderInfo } from "@/components/LoggedInHeaderInfo";
+import { SupportHubHeader } from "@/components/SupportHubHeader";
+import { UserAccountMenu, UserMenuLink } from "@/components/UserAccountMenu";
 import { NotificationBell } from "@/components/NotificationBell";
 import {
   loadAuthToken,
@@ -13,31 +14,28 @@ import {
 } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
-import { fetchTickets, type Ticket } from "@/lib/tickets-api";
+import {
+  filterControlClass,
+  TicketFilterCard,
+  TicketFilterField,
+  TicketFilterHint,
+  TicketFilterResetButton,
+} from "@/components/TicketFilterPanel";
+import {
+  fetchTickets,
+  type Ticket,
+  type TicketsPagination,
+} from "@/lib/tickets-api";
 import { formatTicketPriority, TICKET_PRIORITIES } from "@/lib/ticket-priority";
+import {
+  getTicketStatusTheme,
+  isKnownTicketStatus,
+  TICKET_STATUS_ORDER,
+  TICKET_STATUS_OTHER_THEME,
+  ticketStatusLabel,
+} from "@/lib/ticket-status-theme";
 
-const STATUS_OPTIONS = [
-  "",
-  "new",
-  "assigned",
-  "in_progress",
-  "waiting_user",
-  "resolved",
-  "closed",
-  "rejected",
-  "duplicate",
-];
-
-const STATUS_GROUPS = [
-  { key: "new", label: "Baru" },
-  { key: "assigned", label: "Ditugaskan" },
-  { key: "in_progress", label: "Dikerjakan" },
-  { key: "waiting_user", label: "Menunggu user" },
-  { key: "resolved", label: "Selesai" },
-  { key: "closed", label: "Ditutup" },
-  { key: "rejected", label: "Ditolak" },
-  { key: "duplicate", label: "Duplikat" },
-] as const;
+const STATUS_OPTIONS = ["", ...TICKET_STATUS_ORDER];
 
 function formatCreatedAt(iso: string) {
   return new Date(iso).toLocaleString("id-ID", {
@@ -50,7 +48,7 @@ function formatCreatedAt(iso: string) {
 }
 
 function statusLabel(key: string) {
-  return STATUS_GROUPS.find((s) => s.key === key)?.label ?? key;
+  return ticketStatusLabel(key);
 }
 
 function TicketTable({
@@ -114,12 +112,60 @@ function TicketTable({
   );
 }
 
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+
+function TicketsPaginationBar({
+  pagination,
+  onPageChange,
+}: {
+  pagination: TicketsPagination;
+  onPageChange: (page: number) => void;
+}) {
+  const { page, totalPages, total, limit } = pagination;
+  const from = total === 0 ? 0 : (page - 1) * limit + 1;
+  const to = Math.min(page * limit, total);
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E8E8E8] bg-white px-3 py-3 text-sm text-[#014547]">
+      <p className="text-xs text-[#717171]">
+        Menampilkan {from}–{to} dari {total} tiket
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+          className="rounded-lg border border-[#E8E8E8] px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-40 hover:bg-[#F5F5F5]"
+        >
+          Sebelumnya
+        </button>
+        <span className="px-1 text-xs text-[#717171]">
+          Halaman {page} / {totalPages || 1}
+        </span>
+        <button
+          type="button"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+          className="rounded-lg border border-[#E8E8E8] px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-40 hover:bg-[#F5F5F5]"
+        >
+          Berikutnya
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function TicketsListPage() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [pagination, setPagination] = useState<TicketsPagination | null>(null);
   const [groupByStatus, setGroupByStatus] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,93 +181,166 @@ export default function TicketsListPage() {
 
     setLoading(true);
     setError(null);
-    const params: { status?: string; priority?: string } = {};
+    const params: {
+      status?: string;
+      priority?: string;
+      date_from?: string;
+      date_to?: string;
+      page: number;
+      limit: number;
+    } = { page, limit: pageSize };
     if (statusFilter) params.status = statusFilter;
     if (priorityFilter) params.priority = priorityFilter;
+    if (dateFrom) params.date_from = dateFrom;
+    if (dateTo) params.date_to = dateTo;
 
-    void fetchTickets(Object.keys(params).length ? params : undefined)
-      .then((d) => setTickets(d.tickets))
+    void fetchTickets(params)
+      .then((d) => {
+        setTickets(d.tickets);
+        setPagination(d.pagination ?? null);
+      })
       .catch((e) => setError(e instanceof Error ? e.message : "Gagal memuat"))
       .finally(() => setLoading(false));
-  }, [router, statusFilter, priorityFilter]);
+  }, [router, statusFilter, priorityFilter, dateFrom, dateTo, page, pageSize]);
 
   return (
     <main className="min-h-full bg-[#F5F5F5]">
-      <header className="flex items-center justify-between bg-gradient-to-r from-[#032626] to-[#0B6463] px-4 py-3 text-white">
-        <LoggedInHeaderInfo
+      <SupportHubHeader
+        title="Tiket Gangguan"
+        subtitle="Nuha Care TMS"
+        user={user}
+      >
+        <NotificationBell />
+        <Link href={withBasePath("/tickets/board")} className="rounded-lg px-2 py-1 text-xs hover:bg-white/10">
+          Board
+        </Link>
+        <UserAccountMenu
           user={user}
-          title="Tiket Gangguan"
-          subtitle="Nuha Care TMS"
-        />
-        <nav className="flex items-center gap-2 text-xs">
-          <NotificationBell />
+          onLogout={() => {
+            logout();
+            router.push(withBasePath("/login"));
+          }}
+        >
           {user?.role !== "user" && (
-            <Link href={withBasePath("/agent")} className="rounded-lg px-2 py-1 hover:bg-white/10">
-              Chat
-            </Link>
+            <UserMenuLink href={withBasePath("/agent")}>Chat implementator</UserMenuLink>
           )}
           {user?.role === "user" && (
-            <Link href={withBasePath("/support")} className="rounded-lg px-2 py-1 hover:bg-white/10">
-              Support
-            </Link>
+            <UserMenuLink href={withBasePath("/support")}>Support chat</UserMenuLink>
           )}
-          <Link href={withBasePath("/tickets/board")} className="rounded-lg px-2 py-1 hover:bg-white/10">
-            Board
-          </Link>
-          <button
-            type="button"
-            onClick={() => {
-              logout();
-              router.push(withBasePath("/login"));
-            }}
-            className="rounded-lg px-2 py-1 hover:bg-white/10"
-          >
-            Keluar
-          </button>
-        </nav>
-      </header>
+        </UserAccountMenu>
+      </SupportHubHeader>
 
       <div className="mx-auto max-w-5xl p-4">
-        <div className="mb-4 flex flex-wrap items-center gap-4">
-          <label className="text-sm text-[#014547]">
-            Status
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="ml-2 rounded border px-2 py-1 text-sm"
-            >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s || "all"} value={s}>
-                  {s || "Semua"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm text-[#014547]">
-            Prioritas
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="ml-2 rounded border px-2 py-1 text-sm"
-            >
-              <option value="">Semua</option>
-              {TICKET_PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {formatTicketPriority(p)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-[#014547]">
-            <input
-              type="checkbox"
-              checked={groupByStatus}
-              onChange={(e) => setGroupByStatus(e.target.checked)}
-              className="rounded border-[#E8E8E8]"
-            />
-            Kelompokkan per status
-          </label>
-        </div>
+        <TicketFilterCard
+          className="mb-4"
+          footer={
+            <>
+              <TicketFilterResetButton
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                  setStatusFilter("");
+                  setPriorityFilter("");
+                  setPage(1);
+                }}
+              />
+              <TicketFilterHint>Filter diterapkan otomatis saat nilai diubah.</TicketFilterHint>
+            </>
+          }
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <TicketFilterField label="Tanggal awal">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setDateFrom(e.target.value);
+                  setPage(1);
+                }}
+                className={filterControlClass}
+              />
+            </TicketFilterField>
+            <TicketFilterField label="Tanggal akhir">
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => {
+                  setDateTo(e.target.value);
+                  setPage(1);
+                }}
+                className={filterControlClass}
+              />
+            </TicketFilterField>
+            <TicketFilterField label="Status">
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
+                className={filterControlClass}
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s || "all"} value={s}>
+                    {s ? ticketStatusLabel(s) : "Semua status"}
+                  </option>
+                ))}
+              </select>
+            </TicketFilterField>
+            <TicketFilterField label="Prioritas">
+              <select
+                value={priorityFilter}
+                onChange={(e) => {
+                  setPriorityFilter(e.target.value);
+                  setPage(1);
+                }}
+                className={filterControlClass}
+              >
+                <option value="">Semua prioritas</option>
+                {TICKET_PRIORITIES.map((p) => (
+                  <option key={p} value={p}>
+                    {formatTicketPriority(p)}
+                  </option>
+                ))}
+              </select>
+            </TicketFilterField>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <TicketFilterField label="Per halaman">
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className={filterControlClass}
+              >
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n} tiket
+                  </option>
+                ))}
+              </select>
+            </TicketFilterField>
+            <TicketFilterField label="Tampilan" className="sm:col-span-2">
+              <label className="flex h-[42px] cursor-pointer items-center gap-2 rounded-lg border border-[#E0E0E0] bg-[#FAFAFA] px-3 text-sm text-[#014547] shadow-sm">
+                <input
+                  type="checkbox"
+                  checked={groupByStatus}
+                  onChange={(e) => setGroupByStatus(e.target.checked)}
+                  className="h-4 w-4 rounded border-[#CFCFCF] text-[#07C5BA] focus:ring-[#07C5BA]/30"
+                />
+                Kelompokkan per status
+              </label>
+            </TicketFilterField>
+          </div>
+        </TicketFilterCard>
+
+        {groupByStatus && !loading && tickets.length > 0 && (
+          <p className="mb-3 text-xs text-[#717171]">
+            Kelompok status berlaku untuk tiket di halaman ini saja.
+          </p>
+        )}
 
         {error && (
           <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{error}</p>
@@ -236,35 +355,47 @@ export default function TicketsListPage() {
         ) : groupByStatus ? (
           <div className="space-y-4">
             {(statusFilter
-              ? STATUS_GROUPS.filter((s) => s.key === statusFilter)
-              : STATUS_GROUPS
-            ).map(({ key, label }) => {
+              ? TICKET_STATUS_ORDER.filter((key) => key === statusFilter)
+              : TICKET_STATUS_ORDER
+            ).map((key) => {
               const group = tickets.filter((t) => t.status === key);
               if (!group.length) return null;
+              const theme = getTicketStatusTheme(key);
               return (
                 <section
                   key={key}
-                  className="overflow-hidden rounded-xl border border-[#E8E8E8] bg-white"
+                  className={`overflow-hidden rounded-xl border border-[#E8E8E8] border-l-4 bg-white ${theme.sectionAccent}`}
                 >
-                  <h2 className="border-b border-[#F0F0F0] bg-[#FAFAFA] px-3 py-2 text-xs font-semibold text-[#014547]">
-                    {label}
-                    <span className="ml-2 font-normal text-[#717171]">({group.length})</span>
+                  <h2
+                    className={`flex items-center gap-2 px-3 py-2.5 text-xs font-semibold ${theme.header}`}
+                  >
+                    <span>{theme.label}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${theme.count}`}
+                    >
+                      {group.length}
+                    </span>
                   </h2>
                   <TicketTable rows={group} showStatusColumn={false} />
                 </section>
               );
             })}
-            {tickets.some(
-              (t) => !STATUS_GROUPS.some((s) => s.key === t.status),
-            ) && (
-              <section className="overflow-hidden rounded-xl border border-[#E8E8E8] bg-white">
-                <h2 className="border-b border-[#F0F0F0] bg-[#FAFAFA] px-3 py-2 text-xs font-semibold text-[#014547]">
-                  Lainnya
+            {tickets.some((t) => !isKnownTicketStatus(t.status)) && (
+              <section
+                className={`overflow-hidden rounded-xl border border-[#E8E8E8] border-l-4 bg-white ${TICKET_STATUS_OTHER_THEME.sectionAccent}`}
+              >
+                <h2
+                  className={`flex items-center gap-2 px-3 py-2.5 text-xs font-semibold ${TICKET_STATUS_OTHER_THEME.header}`}
+                >
+                  <span>{TICKET_STATUS_OTHER_THEME.label}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${TICKET_STATUS_OTHER_THEME.count}`}
+                  >
+                    {tickets.filter((t) => !isKnownTicketStatus(t.status)).length}
+                  </span>
                 </h2>
                 <TicketTable
-                  rows={tickets.filter(
-                    (t) => !STATUS_GROUPS.some((s) => s.key === t.status),
-                  )}
+                  rows={tickets.filter((t) => !isKnownTicketStatus(t.status))}
                   showStatusColumn
                 />
               </section>
@@ -274,6 +405,20 @@ export default function TicketsListPage() {
           <div className="overflow-hidden rounded-xl border border-[#E8E8E8] bg-white">
             <TicketTable rows={tickets} showStatusColumn />
           </div>
+        )}
+
+        {pagination && !loading && tickets.length > 0 && (
+          <TicketsPaginationBar
+            pagination={pagination}
+            onPageChange={setPage}
+          />
+        )}
+
+        {pagination && !loading && tickets.length === 0 && (
+          <p className="mt-3 text-center text-xs text-[#717171]">
+            Tidak ada tiket pada filter ini
+            {pagination.total > 0 ? ` (${pagination.total} total)` : ""}.
+          </p>
         )}
       </div>
     </main>

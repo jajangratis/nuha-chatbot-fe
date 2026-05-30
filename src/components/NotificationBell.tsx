@@ -9,6 +9,7 @@ import {
   markServerNotificationRead,
 } from "@/lib/notifications-api";
 import {
+  dismissAllToasts,
   isServerNotificationId,
   markAllNotificationsRead,
   markNotificationRead,
@@ -65,6 +66,7 @@ export function NotificationBell() {
 
   useEffect(() => {
     if (!open) return;
+    dismissAllToasts();
     const onDoc = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         setOpen(false);

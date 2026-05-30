@@ -549,7 +549,10 @@ export function GuestSupportChat() {
                       {msg.role === "assistant" ? (
                         <>
                           <ChatMarkdown content={msg.content} />
-                          <MessageAttachments metadata={msg.metadata} />
+                          <MessageAttachments
+                            metadata={msg.metadata}
+                            guestToken={stored?.guestSessionToken}
+                          />
                         </>
                       ) : msg.role === "system" ? (
                         <p className="whitespace-pre-wrap italic">{msg.content}</p>
@@ -559,7 +562,11 @@ export function GuestSupportChat() {
                             <p className="whitespace-pre-wrap">{msg.content}</p>
                             <ChatReadReceipt readAt={msg.read_at} variant="dark" />
                           </div>
-                          <MessageAttachments metadata={msg.metadata} variant="dark" />
+                          <MessageAttachments
+                            metadata={msg.metadata}
+                            variant="dark"
+                            guestToken={stored?.guestSessionToken}
+                          />
                         </>
                       )}
                     </article>

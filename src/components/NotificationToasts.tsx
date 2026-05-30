@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  dismissNotification,
+  dismissToast,
   isServerNotificationId,
   markNotificationRead,
   serverNotificationIdRaw,
-  subscribeNotifications,
+  subscribeToasts,
   type AppNotification,
 } from "@/lib/notify";
 import { markServerNotificationRead } from "@/lib/notifications-api";
@@ -22,20 +22,16 @@ export function NotificationToasts() {
   const router = useRouter();
   const [items, setItems] = useState<AppNotification[]>([]);
 
-  useEffect(() => {
-    return subscribeNotifications(setItems);
-  }, []);
+  useEffect(() => subscribeToasts(setItems), []);
 
-  const recent = items.filter((n) => !n.read).slice(0, 3);
-
-  if (!recent.length) return null;
+  if (!items.length) return null;
 
   return (
     <div
-      className="pointer-events-none fixed right-4 top-4 z-[10000] flex w-[min(100vw-2rem,360px)] flex-col gap-2"
+      className="pointer-events-none fixed right-4 top-4 z-[9990] flex w-[min(100vw-2rem,360px)] flex-col gap-2"
       aria-live="polite"
     >
-      {recent.map((n) => (
+      {items.map((n) => (
         <div
           key={n.id}
           className={`pointer-events-auto rounded-xl border px-4 py-3 shadow-lg ${TYPE_STYLES[n.type ?? "info"]}`}
@@ -49,6 +45,7 @@ export function NotificationToasts() {
                 } else {
                   markNotificationRead(n.id);
                 }
+                dismissToast(n.id);
                 router.push(n.href);
               }}
               className="min-w-0 flex-1 text-left hover:opacity-90"
@@ -61,7 +58,7 @@ export function NotificationToasts() {
             </button>
             <button
               type="button"
-              onClick={() => dismissNotification(n.id)}
+              onClick={() => dismissToast(n.id)}
               className="shrink-0 text-lg leading-none opacity-50 hover:opacity-100"
               aria-label="Tutup"
             >

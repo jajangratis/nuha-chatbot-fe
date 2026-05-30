@@ -1,3 +1,4 @@
+import { loadAuthToken } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 
 export type MessageAttachment = {
@@ -16,6 +17,35 @@ export function getAttachmentsFromMessage(metadata: unknown): MessageAttachment[
 
 export function attachmentDownloadUrl(url: string) {
   return withBasePath(url);
+}
+
+export function chatAttachmentApiPath(attachmentId: string) {
+  return withBasePath(`/api/v1/attachments/${attachmentId}`);
+}
+
+/** Ambil blob lampiran chat (butuh login atau token guest). */
+export async function fetchChatAttachmentBlob(
+  attachmentId: string,
+  opts?: { guestToken?: string | null },
+) {
+  const headers = new Headers();
+  const token = loadAuthToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  } else if (opts?.guestToken) {
+    headers.set("X-Guest-Session-Token", opts.guestToken);
+  } else {
+    throw new Error("Tidak terautentikasi untuk membuka lampiran.");
+  }
+
+  const res = await fetch(chatAttachmentApiPath(attachmentId), {
+    headers,
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Lampiran gagal dimuat (${res.status})`);
+  }
+  return res.blob();
 }
 
 export function formatFileSize(bytes: number) {
