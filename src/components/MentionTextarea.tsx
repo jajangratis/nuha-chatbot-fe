@@ -8,16 +8,26 @@ import {
   useState,
   type ClipboardEvent,
   type KeyboardEvent,
+  type Ref,
 } from "react";
 import { createPortal } from "react-dom";
 import type { AssignableUser } from "@/lib/tickets-api";
 import {
+  getMentionEditorCursor,
+  renderMentionEditorContent,
+  serializeMentionEditor,
+  setMentionEditorCursor,
+} from "@/lib/mention-editor";
+import {
   buildMentionToken,
   filterMentionUsers,
   getMentionContext,
+  hasMentionTokens,
   insertMentionToken,
   mentionUserLabel,
 } from "@/lib/ticket-mentions";
+
+export type MentionEditorElement = HTMLDivElement;
 
 type Props = {
   value: string;
@@ -27,10 +37,11 @@ type Props = {
   rows?: number;
   className?: string;
   disabled?: boolean;
-  onPaste?: (e: ClipboardEvent<HTMLTextAreaElement>) => void;
-  textareaRef?: React.Ref<HTMLTextAreaElement | null>;
+  onPaste?: (e: ClipboardEvent<MentionEditorElement>) => void;
+  /** @deprecated gunakan editorRef */
+  textareaRef?: Ref<MentionEditorElement | null>;
+  editorRef?: Ref<MentionEditorElement | null>;
   segmentId?: string;
-  /** Portal + fixed position — untuk editor di dalam container overflow (deskripsi tiket). */
   usePortalMenu?: boolean;
 };
 
@@ -43,25 +54,29 @@ export function MentionTextarea({
   className = "",
   disabled = false,
   onPaste,
-  textareaRef: externalRef,
+  textareaRef,
+  editorRef,
   segmentId,
   usePortalMenu = false,
 }: Props) {
-  const innerRef = useRef<HTMLTextAreaElement>(null);
+  const innerRef = useRef<MentionEditorElement>(null);
+  const syncingRef = useRef(false);
   const [menuPos, setMenuPos] = useState<{ left: number; top: number; width: number } | null>(
     null,
   );
 
+  const refProp = editorRef ?? textareaRef;
+
   const setRefs = useCallback(
-    (el: HTMLTextAreaElement | null) => {
+    (el: MentionEditorElement | null) => {
       innerRef.current = el;
-      if (typeof externalRef === "function") {
-        externalRef(el);
-      } else if (externalRef && "current" in externalRef) {
-        externalRef.current = el;
+      if (typeof refProp === "function") {
+        refProp(el);
+      } else if (refProp && "current" in refProp) {
+        refProp.current = el;
       }
     },
-    [externalRef],
+    [refProp],
   );
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -74,6 +89,8 @@ export function MentionTextarea({
     () => filterMentionUsers(users, query),
     [users, query],
   );
+
+  const minHeightStyle = { minHeight: `${Math.max(rows, 2) * 1.5}rem` };
 
   const updateMenuPosition = useCallback(() => {
     const el = innerRef.current;
@@ -93,7 +110,9 @@ export function MentionTextarea({
       setMenuPos(null);
       return;
     }
-    const ctx = getMentionContext(value, el.selectionStart ?? value.length);
+    const serialized = serializeMentionEditor(el);
+    const cursor = getMentionEditorCursor(el);
+    const ctx = getMentionContext(serialized, cursor);
     if (!ctx) {
       setOpen(false);
       setMenuPos(null);
@@ -104,7 +123,18 @@ export function MentionTextarea({
     setMentionStart(ctx.start);
     setActiveIndex(0);
     if (usePortalMenu) updateMenuPosition();
-  }, [updateMenuPosition, usePortalMenu, users.length, value]);
+  }, [updateMenuPosition, usePortalMenu, users.length]);
+
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el || syncingRef.current) return;
+    const current = serializeMentionEditor(el);
+    const domHasChips = Boolean(el.querySelector("[data-mention-id]"));
+    if (current === value && (!hasMentionTokens(value) || domHasChips)) return;
+    syncingRef.current = true;
+    renderMentionEditorContent(el, value);
+    syncingRef.current = false;
+  }, [value]);
 
   useEffect(() => {
     if (!open || !usePortalMenu) return;
@@ -124,30 +154,52 @@ export function MentionTextarea({
     item?.scrollIntoView({ block: "nearest" });
   }, [activeIndex, open]);
 
+  const emitChange = useCallback(
+    (el: MentionEditorElement) => {
+      let serialized = serializeMentionEditor(el);
+      if (hasMentionTokens(serialized)) {
+        const cursor = getMentionEditorCursor(el);
+        renderMentionEditorContent(el, serialized);
+        setMentionEditorCursor(el, cursor);
+        serialized = serializeMentionEditor(el);
+      }
+      syncingRef.current = true;
+      onChange(serialized);
+      syncingRef.current = false;
+      return serialized;
+    },
+    [onChange],
+  );
+
   const pickUser = useCallback(
     (user: AssignableUser) => {
       const el = innerRef.current;
-      const cursor = el?.selectionStart ?? value.length;
+      if (!el) return;
+
+      const serialized = serializeMentionEditor(el);
+      const cursor = getMentionEditorCursor(el);
       const token = buildMentionToken(user);
       const { text, cursor: nextCursor } = insertMentionToken(
-        value,
+        serialized,
         mentionStart,
         cursor,
         token,
       );
+
+      syncingRef.current = true;
+      renderMentionEditorContent(el, text);
+      setMentionEditorCursor(el, nextCursor);
       onChange(text);
+      syncingRef.current = false;
+
       setOpen(false);
       setMenuPos(null);
-      requestAnimationFrame(() => {
-        if (!el) return;
-        el.focus();
-        el.setSelectionRange(nextCursor, nextCursor);
-      });
+      requestAnimationFrame(() => el.focus());
     },
-    [mentionStart, onChange, value],
+    [mentionStart, onChange],
   );
 
-  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const onKeyDown = (e: KeyboardEvent<MentionEditorElement>) => {
     if (!open || !options.length) return;
 
     if (e.key === "ArrowDown") {
@@ -203,17 +255,30 @@ export function MentionTextarea({
       </div>
     ) : null;
 
+  const showPlaceholder = !value.trim();
+
   return (
     <div className="relative">
-      <textarea
+      {showPlaceholder && placeholder && (
+        <div
+          className={`pointer-events-none absolute inset-0 overflow-hidden text-[#9E9E9E] ${className}`}
+          style={minHeightStyle}
+          aria-hidden
+        >
+          {placeholder}
+        </div>
+      )}
+      <div
         ref={setRefs}
+        role="textbox"
+        aria-multiline="true"
+        contentEditable={!disabled}
+        suppressContentEditableWarning
         data-segment-id={segmentId}
-        value={value}
-        rows={rows}
-        disabled={disabled}
-        placeholder={placeholder}
-        onChange={(e) => {
-          onChange(e.target.value);
+        style={minHeightStyle}
+        onInput={(e) => {
+          const el = e.currentTarget;
+          emitChange(el);
           requestAnimationFrame(syncMentionState);
         }}
         onClick={syncMentionState}
@@ -226,7 +291,7 @@ export function MentionTextarea({
           }, 120);
         }}
         onPaste={onPaste}
-        className={className}
+        className={`whitespace-pre-wrap break-words outline-none ${className}`}
       />
 
       {!usePortalMenu && menuContent && (

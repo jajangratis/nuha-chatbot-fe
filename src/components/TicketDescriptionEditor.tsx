@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
-import { MentionTextarea } from "@/components/MentionTextarea";
+import {
+  MentionTextarea,
+  type MentionEditorElement,
+} from "@/components/MentionTextarea";
+import {
+  getMentionEditorCursor,
+  setMentionEditorCursor,
+} from "@/lib/mention-editor";
 import { patchTicket, uploadTicketDescriptionImage, type AssignableUser } from "@/lib/tickets-api";
 import { MarkdownImage } from "@/components/MarkdownImage";
 import { mentionsToMarkdownEmphasis } from "@/lib/ticket-mentions";
@@ -109,8 +116,8 @@ export function TicketDescriptionEditor({
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const mainTextRef = useRef<HTMLTextAreaElement>(null);
-  const segmentTextRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const mainTextRef = useRef<MentionEditorElement>(null);
+  const segmentTextRefs = useRef<Record<string, MentionEditorElement | null>>({});
 
   const segments = useMemo(() => parseSegments(draft), [draft]);
   const inlineImages = hasImageSegments(segments);
@@ -119,11 +126,14 @@ export function TicketDescriptionEditor({
     setDraft(value);
   }, [value]);
 
-  const getActiveTextarea = () => {
+  const getActiveEditor = () => {
     const active = document.activeElement;
-    if (active instanceof HTMLTextAreaElement) {
+    if (active instanceof HTMLElement && active.isContentEditable) {
       const segId = active.dataset.segmentId;
-      if (segId) return { el: active, segmentId: segId };
+      if (segId) return { el: active as MentionEditorElement, segmentId: segId };
+      if (active === mainTextRef.current) {
+        return { el: active as MentionEditorElement, segmentId: null };
+      }
     }
     if (mainTextRef.current) {
       return { el: mainTextRef.current, segmentId: null };
@@ -137,23 +147,23 @@ export function TicketDescriptionEditor({
     return null;
   };
 
-  const setCursorOn = (el: HTMLTextAreaElement, pos: number) => {
+  const setCursorOn = (el: MentionEditorElement, pos: number) => {
     requestAnimationFrame(() => {
       el.focus();
-      el.setSelectionRange(pos, pos);
+      setMentionEditorCursor(el, pos);
     });
   };
 
   const insertMarkdown = useCallback(
     (snippet: string, replaceLength = 0) => {
-      const active = getActiveTextarea();
+      const active = getActiveEditor();
       if (!active) {
         setDraft((d) => d + snippet);
         return;
       }
 
       const { el, segmentId } = active;
-      const cursor = el.selectionStart ?? 0;
+      const cursor = getMentionEditorCursor(el);
       let source = draft;
       if (segmentId) {
         const seg = segments.find((s) => s.id === segmentId);
@@ -195,7 +205,7 @@ export function TicketDescriptionEditor({
 
   const handleMainTextChange = (text: string) => {
     const el = mainTextRef.current;
-    const cursor = el?.selectionStart ?? text.length;
+    const cursor = el ? getMentionEditorCursor(el) : text.length;
     const codeCmd = applyCodeSlashCommand(text, cursor);
     if (codeCmd) {
       setDraft(codeCmd.text);
@@ -229,7 +239,7 @@ export function TicketDescriptionEditor({
     if (file) await uploadImageFile(file);
   };
 
-  const onPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  const onPaste = async (e: React.ClipboardEvent<MentionEditorElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
     for (const item of items) {
@@ -244,9 +254,9 @@ export function TicketDescriptionEditor({
 
   const onInsertCode = () => {
     insertMarkdown(`\n${CODE_BLOCK}\n`);
-    const active = getActiveTextarea();
+    const active = getActiveEditor();
     if (active?.el) {
-      const pos = (active.el.selectionStart ?? 0) - 4;
+      const pos = getMentionEditorCursor(active.el) - 4;
       setCursorOn(active.el, Math.max(0, pos));
     }
   };
@@ -357,7 +367,7 @@ export function TicketDescriptionEditor({
                         updateTextSegment(
                           seg.id,
                           text,
-                          el?.selectionStart ?? text.length,
+                          el ? getMentionEditorCursor(el) : text.length,
                         );
                       }}
                       onPaste={(e) => void onPaste(e)}

@@ -1,5 +1,6 @@
 "use client";
 
+import { MENTION_CHIP_CLASS } from "@/lib/mention-editor";
 import { splitMentionText } from "@/lib/ticket-mentions";
 
 type Props = {
@@ -16,7 +17,7 @@ export function MentionRichText({ text, className = "" }: Props) {
         part.type === "mention" ? (
           <span
             key={`m-${i}-${part.userId}`}
-            className="mx-0.5 inline-flex rounded-full bg-[#E8F9F8] px-1.5 py-0.5 align-baseline text-[12px] font-semibold text-[#014547] ring-1 ring-[#07C5BA]/20"
+            className={MENTION_CHIP_CLASS}
             title={`@${part.name}`}
           >
             @{part.name}

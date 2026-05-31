@@ -74,3 +74,7 @@ export function mentionsToMarkdownEmphasis(text: string) {
 export function mentionUserLabel(user: AssignableUser) {
   return formatAssigneeLabel(user);
 }
+
+export function hasMentionTokens(text: string) {
+  return new RegExp(MENTION_TOKEN_RE.source).test(text);
+}

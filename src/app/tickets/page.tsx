@@ -13,6 +13,8 @@ import {
   type AuthUser,
 } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
+import { AssigneeMultiFilter } from "@/components/AssigneeMultiFilter";
+import { TicketAssigneeAvatars } from "@/components/TicketAssigneeAvatars";
 import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
 import {
   filterControlClass,
@@ -22,7 +24,9 @@ import {
   TicketFilterResetButton,
 } from "@/components/TicketFilterPanel";
 import {
+  fetchAssignableUsers,
   fetchTickets,
+  type AssignableUser,
   type Ticket,
   type TicketsPagination,
 } from "@/lib/tickets-api";
@@ -96,7 +100,7 @@ function TicketTable({
               {formatCreatedAt(t.created_at)}
             </td>
             <td className="px-3 py-2">
-              {t.assignee_names ?? t.assignee_name ?? "—"}
+              <TicketAssigneeAvatars assignees={t.assignees} />
             </td>
           </tr>
         ))}
@@ -167,8 +171,12 @@ export default function TicketsListPage() {
   const [pageSize, setPageSize] = useState(20);
   const [pagination, setPagination] = useState<TicketsPagination | null>(null);
   const [groupByStatus, setGroupByStatus] = useState(true);
+  const [assigneeFilterIds, setAssigneeFilterIds] = useState<string[]>([]);
+  const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const isStaff = user?.role === "agent" || user?.role === "admin" || user?.role === "developer";
 
   useEffect(() => {
     const token = loadAuthToken();
@@ -179,11 +187,31 @@ export default function TicketsListPage() {
     }
     setUser(authUser);
 
+    if (
+      authUser &&
+      (authUser.role === "agent" ||
+        authUser.role === "admin" ||
+        authUser.role === "developer")
+    ) {
+      void fetchAssignableUsers()
+        .then((d) => setAssignableUsers(d.users))
+        .catch(() => setAssignableUsers([]));
+    }
+  }, [router]);
+
+  const assigneeFilterKey = assigneeFilterIds.join(",");
+  const assignableCount = assignableUsers.length;
+
+  useEffect(() => {
+    const token = loadAuthToken();
+    if (!token) return;
+
     setLoading(true);
     setError(null);
     const params: {
       status?: string;
       priority?: string;
+      assignee_ids?: string[];
       date_from?: string;
       date_to?: string;
       page: number;
@@ -191,6 +219,11 @@ export default function TicketsListPage() {
     } = { page, limit: pageSize };
     if (statusFilter) params.status = statusFilter;
     if (priorityFilter) params.priority = priorityFilter;
+    const allStaffSelected =
+      assignableCount > 0 && assigneeFilterIds.length === assignableCount;
+    if (assigneeFilterIds.length && !allStaffSelected) {
+      params.assignee_ids = assigneeFilterIds;
+    }
     if (dateFrom) params.date_from = dateFrom;
     if (dateTo) params.date_to = dateTo;
 
@@ -201,7 +234,16 @@ export default function TicketsListPage() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Gagal memuat"))
       .finally(() => setLoading(false));
-  }, [router, statusFilter, priorityFilter, dateFrom, dateTo, page, pageSize]);
+  }, [
+    statusFilter,
+    priorityFilter,
+    assigneeFilterKey,
+    assignableCount,
+    dateFrom,
+    dateTo,
+    page,
+    pageSize,
+  ]);
 
   return (
     <main className="min-h-full bg-[#F5F5F5]">
@@ -241,6 +283,7 @@ export default function TicketsListPage() {
                   setDateTo("");
                   setStatusFilter("");
                   setPriorityFilter("");
+                  setAssigneeFilterIds([]);
                   setPage(1);
                 }}
               />
@@ -304,6 +347,18 @@ export default function TicketsListPage() {
                 ))}
               </select>
             </TicketFilterField>
+            {isStaff && (
+              <TicketFilterField label="Assignee">
+                <AssigneeMultiFilter
+                  users={assignableUsers}
+                  value={assigneeFilterIds}
+                  onChange={(ids) => {
+                    setAssigneeFilterIds(ids);
+                    setPage(1);
+                  }}
+                />
+              </TicketFilterField>
+            )}
           </div>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <TicketFilterField label="Per halaman">

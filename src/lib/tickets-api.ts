@@ -57,6 +57,8 @@ export async function fetchTickets(params?: {
   status?: string;
   priority?: string;
   module?: string;
+  assignee_id?: string;
+  assignee_ids?: string[];
   date_from?: string;
   date_to?: string;
   page?: number;
@@ -66,6 +68,15 @@ export async function fetchTickets(params?: {
   if (params?.status) q.set("status", params.status);
   if (params?.priority) q.set("priority", params.priority);
   if (params?.module) q.set("module", params.module);
+  const assigneeIds =
+    params?.assignee_ids?.length
+      ? params.assignee_ids
+      : params?.assignee_id
+        ? [params.assignee_id]
+        : [];
+  for (const id of assigneeIds) {
+    q.append("assignee_id", id);
+  }
   if (params?.date_from) q.set("date_from", params.date_from);
   if (params?.date_to) q.set("date_to", params.date_to);
   if (params?.page != null) q.set("page", String(params.page));
