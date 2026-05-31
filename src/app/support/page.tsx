@@ -11,6 +11,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { ChatReadReceipt } from "@/components/ChatReadReceipt";
 import { MessageAttachments } from "@/components/MessageAttachments";
 import { notifyNewChatMessages, supportSessionHref } from "@/lib/notify";
+import { useChatScrollPin } from "@/lib/chat-scroll";
 import {
   loadAuthToken,
   loadAuthUser,
@@ -74,20 +75,16 @@ export default function SupportPage() {
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const knownMessageIds = useRef<Set<string>>(new Set());
+  const { onScroll: onChatScroll, forceScrollNext } = useChatScrollPin(
+    listRef,
+    messages,
+  );
 
   const sessionEnded = isSessionEnded(sessionStatus);
 
   const applySessionMeta = useCallback((session: SupportSession) => {
     setSessionStatus(session.status);
     setQueuePosition(session.queue_position ?? null);
-  }, []);
-
-  const scrollToBottom = useCallback(() => {
-    requestAnimationFrame(() => {
-      if (listRef.current) {
-        listRef.current.scrollTop = listRef.current.scrollHeight;
-      }
-    });
   }, []);
 
   const refreshSession = useCallback(
@@ -125,10 +122,9 @@ export default function SupportPage() {
       }
 
       setMessages(ui);
-      scrollToBottom();
       return data;
     },
-    [applySessionMeta, scrollToBottom, user?.display_name],
+    [applySessionMeta, user?.display_name],
   );
 
   useEffect(() => {
@@ -170,6 +166,7 @@ export default function SupportPage() {
     knownMessageIds.current = new Set();
     try {
       setActiveSessionId(sessionId);
+      forceScrollNext();
       await refreshSession(sessionId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat sesi.");
@@ -206,6 +203,7 @@ export default function SupportPage() {
       const result = await escalateAuthSession(activeSessionId);
       applySessionMeta(result.session);
       setQueuePosition(result.queue_position);
+      forceScrollNext();
       await refreshSession(activeSessionId);
       setSessions((prev) =>
         prev.map((s) => (s.id === result.session.id ? result.session : s)),
@@ -229,6 +227,7 @@ export default function SupportPage() {
     setMessages((prev) => [...prev, { id: createId(), role: "user", content: preview }]);
     setInput("");
     setLoading(true);
+    forceScrollNext();
 
     try {
       const result =
@@ -264,7 +263,6 @@ export default function SupportPage() {
       ]);
     } finally {
       setLoading(false);
-      scrollToBottom();
     }
   };
 
@@ -347,6 +345,7 @@ export default function SupportPage() {
             <>
               <div
                 ref={listRef}
+                onScroll={onChatScroll}
                 className="flex flex-1 flex-col gap-3 overflow-y-auto bg-[#F5F5F5] p-4"
               >
                 {messages.map((msg) => (

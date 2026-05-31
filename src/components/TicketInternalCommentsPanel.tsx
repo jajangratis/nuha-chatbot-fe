@@ -1,6 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { MentionRichText } from "@/components/MentionRichText";
+import { MentionTextarea } from "@/components/MentionTextarea";
+import type { AssignableUser } from "@/lib/tickets-api";
 import {
   nuhaCommentCardClass,
   nuhaInputClass,
@@ -32,6 +35,7 @@ type Props = {
   expanded: boolean;
   onToggleExpanded: () => void;
   className?: string;
+  mentionUsers?: AssignableUser[];
 };
 
 function CommentBody({ body }: { body: string }) {
@@ -42,9 +46,9 @@ function CommentBody({ body }: { body: string }) {
   if (!isLong || open) {
     return (
       <div>
-        <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[#0B1D15]">
-          {body}
-        </p>
+        <div className="mt-1 text-sm leading-relaxed text-[#0B1D15]">
+          <MentionRichText text={body} />
+        </div>
         {isLong && (
           <button type="button" onClick={() => setOpen(false)} className={`mt-1 ${nuhaLinkClass}`}>
             Ringkas
@@ -56,9 +60,9 @@ function CommentBody({ body }: { body: string }) {
 
   return (
     <div>
-      <p className="mt-1 line-clamp-5 whitespace-pre-wrap text-sm leading-relaxed text-[#0B1D15]">
-        {body}
-      </p>
+      <div className="mt-1 line-clamp-5 text-sm leading-relaxed text-[#0B1D15]">
+        <MentionRichText text={body} />
+      </div>
       <button type="button" onClick={() => setOpen(true)} className={`mt-1 ${nuhaLinkClass}`}>
         Baca selengkapnya
       </button>
@@ -74,6 +78,7 @@ export function TicketInternalCommentsPanel({
   expanded,
   onToggleExpanded,
   className = "",
+  mentionUsers = [],
 }: Props) {
   return (
     <section className={`${nuhaInternalPanelClass} min-h-0 ${className}`}>
@@ -90,7 +95,8 @@ export function TicketInternalCommentsPanel({
               <h2 className={nuhaPanelTitleClass}>Komentar internal</h2>
             </div>
             <p className={`mt-1 ${nuhaPanelHintClass}`}>
-              Hanya terlihat oleh tim staff, tidak dikirim ke user RS.
+              Hanya terlihat oleh tim staff. Ketik <kbd className="rounded bg-white/80 px-1">@</kbd>{" "}
+              untuk menyebut rekan tim — mereka akan menerima notifikasi.
             </p>
           </div>
           <button
@@ -130,12 +136,13 @@ export function TicketInternalCommentsPanel({
         onSubmit={onSubmit}
         className="flex shrink-0 flex-col gap-2 border-t border-[#E0F7F5] bg-white px-3 py-2.5"
       >
-        <textarea
+        <MentionTextarea
           value={commentText}
-          onChange={(e) => onCommentTextChange(e.target.value)}
+          onChange={onCommentTextChange}
+          users={mentionUsers}
           rows={2}
           className={nuhaInputClass}
-          placeholder="Catatan internal untuk tim…"
+          placeholder="Catatan internal untuk tim… (@ untuk mention)"
         />
         <button
           type="submit"

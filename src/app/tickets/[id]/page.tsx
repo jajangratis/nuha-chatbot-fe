@@ -307,6 +307,7 @@ export default function TicketDetailPage() {
                   ticketId={id}
                   value={ticket.description ?? ""}
                   editable={isStaff}
+                  mentionUsers={assignableUsers}
                   onSaved={(description) =>
                     setTicket((t) => (t ? { ...t, description } : t))
                   }
@@ -355,6 +356,7 @@ export default function TicketDetailPage() {
                 onSubmit={onComment}
                 expanded={commentsExpanded}
                 onToggleExpanded={() => setCommentsExpanded((v) => !v)}
+                mentionUsers={assignableUsers}
               />
             )}
           </div>

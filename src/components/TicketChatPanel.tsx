@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { MessageAttachments } from "@/components/MessageAttachments";
+import { useChatScrollPin } from "@/lib/chat-scroll";
 import { formatAssigneeRole } from "@/lib/tickets-api";
 import {
   sendTicketChatMessage,
@@ -50,11 +51,7 @@ export function TicketChatPanel({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+  const { onScroll, forceScrollNext } = useChatScrollPin(scrollRef, messages);
 
   const onSend = async (message: string, files: File[]) => {
     if ((!message.trim() && !files.length) || !chatOpen) return;
@@ -67,6 +64,7 @@ export function TicketChatPanel({
         await sendTicketChatMessage(ticketId, message.trim());
       }
       setText("");
+      forceScrollNext();
       onSent();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Gagal mengirim pesan";
@@ -81,6 +79,7 @@ export function TicketChatPanel({
     <div className="flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollRef}
+        onScroll={onScroll}
         className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain text-sm"
       >
         {messages.map((m) => (

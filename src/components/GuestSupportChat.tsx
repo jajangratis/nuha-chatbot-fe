@@ -8,6 +8,7 @@ import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { ChatReadReceipt } from "@/components/ChatReadReceipt";
 import { MessageAttachments } from "@/components/MessageAttachments";
 import { notifyNewChatMessages } from "@/lib/notify";
+import { useChatScrollPin } from "@/lib/chat-scroll";
 import {
   clearStoredGuestSession,
   createGuestSession,
@@ -89,14 +90,7 @@ export function GuestSupportChat() {
 
   const listRef = useRef<HTMLDivElement>(null);
   const knownMessageIds = useRef<Set<string>>(new Set());
-
-  const scrollToBottom = useCallback(() => {
-    requestAnimationFrame(() => {
-      if (listRef.current) {
-        listRef.current.scrollTop = listRef.current.scrollHeight;
-      }
-    });
-  }, []);
+  const { onScroll: onChatScroll, forceScrollNext } = useChatScrollPin(listRef, messages);
 
   useEffect(() => {
     const saved = loadStoredGuestSession();
@@ -135,6 +129,7 @@ export function GuestSupportChat() {
       );
       setIdleWarning(data.idleWarning);
       setIdleMinutes(data.idleMinutesRemaining);
+      forceScrollNext();
       setMessages(
         data.messages.length > 0
           ? data.messages.map(toUiMessage)
@@ -160,7 +155,7 @@ export function GuestSupportChat() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [forceScrollNext]);
 
   useEffect(() => {
     if (stored && phase === "chat" && messages.length === 0) {
@@ -213,9 +208,8 @@ export function GuestSupportChat() {
       }
 
       setMessages(ui);
-      scrollToBottom();
     },
-    [stored, scrollToBottom, open],
+    [stored, open],
   );
 
   useEffect(() => {
@@ -303,7 +297,7 @@ export function GuestSupportChat() {
     ]);
     setInput("");
     setLoading(true);
-    scrollToBottom();
+    forceScrollNext();
 
     try {
       const result =
@@ -351,7 +345,7 @@ export function GuestSupportChat() {
       ]);
     } finally {
       setLoading(false);
-      scrollToBottom();
+      forceScrollNext();
     }
   };
 
@@ -533,6 +527,7 @@ export function GuestSupportChat() {
               <>
                 <div
                   ref={listRef}
+                  onScroll={onChatScroll}
                   className="flex flex-1 flex-col gap-3 overflow-y-auto bg-[#F5F5F5] px-3 py-4"
                 >
                   {messages.map((msg) => (

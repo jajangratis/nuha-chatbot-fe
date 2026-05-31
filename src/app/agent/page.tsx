@@ -23,6 +23,7 @@ import {
   formatSessionClosedAt,
   formatSessionClosedStatus,
 } from "@/lib/last-user-reply";
+import { useChatScrollPin } from "@/lib/chat-scroll";
 import {
   claimQueueSession,
   fetchClosedSessions,
@@ -119,6 +120,7 @@ export default function AgentDashboardPage() {
   const [loadingClosed, setLoadingClosed] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const knownMessageIds = useRef<Set<string>>(new Set());
+  const { onScroll: onChatScroll, forceScrollNext } = useChatScrollPin(listRef, messages);
   const prevQueueLen = useRef(0);
 
   const busy = actionLoading !== null || sending;
@@ -168,9 +170,6 @@ export default function AgentDashboardPage() {
       }
 
       setMessages(ui);
-      requestAnimationFrame(() => {
-        if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
-      });
     },
     [],
   );
@@ -218,8 +217,9 @@ export default function AgentDashboardPage() {
     knownMessageIds.current = new Set();
     setActiveId(sessionId);
     setHandoverOpen(false);
+    forceScrollNext();
     void loadMessages(sessionId);
-  }, [loadMessages]);
+  }, [loadMessages, forceScrollNext]);
 
   const openedFromUrlRef = useRef<string | null>(null);
   useEffect(() => {
@@ -288,6 +288,7 @@ export default function AgentDashboardPage() {
         await sendAgentMessage(activeId, text.trim());
       }
       setInput("");
+      forceScrollNext();
       await loadMessages(activeId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal kirim.");
@@ -694,6 +695,7 @@ export default function AgentDashboardPage() {
 
               <div
                 ref={listRef}
+                onScroll={onChatScroll}
                 className="flex flex-1 flex-col gap-2 overflow-y-auto bg-[#F5F5F5] p-3"
               >
                 {messages.map((m) => {

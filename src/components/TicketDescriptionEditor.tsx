@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
-import { patchTicket, uploadTicketDescriptionImage } from "@/lib/tickets-api";
+import { MentionTextarea } from "@/components/MentionTextarea";
+import { patchTicket, uploadTicketDescriptionImage, type AssignableUser } from "@/lib/tickets-api";
 import { MarkdownImage } from "@/components/MarkdownImage";
+import { mentionsToMarkdownEmphasis } from "@/lib/ticket-mentions";
 
 const CODE_BLOCK = "```text\n\n```";
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/gif,image/webp";
@@ -15,6 +17,7 @@ type Props = {
   editable: boolean;
   onSaved: (description: string) => void;
   onError: (message: string) => void;
+  mentionUsers?: AssignableUser[];
 };
 
 type TextSegment = { type: "text"; id: string; content: string };
@@ -99,6 +102,7 @@ export function TicketDescriptionEditor({
   editable,
   onSaved,
   onError,
+  mentionUsers = [],
 }: Props) {
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
@@ -260,7 +264,7 @@ export function TicketDescriptionEditor({
   };
 
   const editorBoxClass =
-    "min-h-32 max-h-80 overflow-y-auto rounded-lg border border-[#E8E8E8] bg-white px-3 py-2 focus-within:border-[#07C5BA] focus-within:ring-1 focus-within:ring-[#07C5BA]/30";
+    "min-h-32 max-h-80 overflow-x-hidden overflow-y-auto rounded-lg border border-[#E8E8E8] bg-white px-3 py-2 focus-within:border-[#07C5BA] focus-within:ring-1 focus-within:ring-[#07C5BA]/30";
 
   const textAreaClass =
     "block w-full resize-none border-0 bg-transparent p-0 font-mono text-sm leading-relaxed text-[#333] outline-none focus:ring-0";
@@ -270,7 +274,7 @@ export function TicketDescriptionEditor({
     return (
       <div>
         <h3 className="mb-1 text-xs font-medium text-[#014547]">Deskripsi</h3>
-        <ChatMarkdown content={value} />
+        <ChatMarkdown content={mentionsToMarkdownEmphasis(value)} />
       </div>
     );
   }
@@ -322,12 +326,13 @@ export function TicketDescriptionEditor({
       />
       <p className="text-[10px] text-[#717171]">
         Markdown didukung. Ketik <kbd className="rounded bg-[#F5F5F5] px-1">/code</kbd> untuk
-        blok kode. Gambar tampil inline di editor.
+        blok kode, <kbd className="rounded bg-[#F5F5F5] px-1">@</kbd> untuk mention staff.
+        Gambar tampil inline di editor.
       </p>
       {preview ? (
         <div className={`${editorBoxClass} bg-[#FAFAFA]`}>
           {draft.trim() ? (
-            <ChatMarkdown content={draft} />
+            <ChatMarkdown content={mentionsToMarkdownEmphasis(draft)} />
           ) : (
             <p className="text-xs text-[#717171]">Belum ada deskripsi.</p>
           )}
@@ -339,24 +344,27 @@ export function TicketDescriptionEditor({
               {segments.map((seg) => {
                 if (seg.type === "text") {
                   return (
-                    <textarea
+                    <MentionTextarea
                       key={seg.id}
-                      ref={(el) => {
+                      usePortalMenu
+                      textareaRef={(el) => {
                         segmentTextRefs.current[seg.id] = el;
                       }}
-                      data-segment-id={seg.id}
+                      segmentId={seg.id}
                       value={seg.content}
-                      onChange={(e) =>
+                      onChange={(text) => {
+                        const el = segmentTextRefs.current[seg.id];
                         updateTextSegment(
                           seg.id,
-                          e.target.value,
-                          e.target.selectionStart ?? 0,
-                        )
-                      }
+                          text,
+                          el?.selectionStart ?? text.length,
+                        );
+                      }}
                       onPaste={(e) => void onPaste(e)}
+                      users={mentionUsers}
                       rows={Math.max(2, seg.content.split("\n").length)}
                       className={textAreaClass}
-                      placeholder="Teks deskripsi…"
+                      placeholder="Teks deskripsi… (@ untuk mention)"
                     />
                   );
                 }
@@ -379,14 +387,16 @@ export function TicketDescriptionEditor({
               })}
             </div>
           ) : (
-            <textarea
-              ref={mainTextRef}
+            <MentionTextarea
+              usePortalMenu
+              textareaRef={mainTextRef}
               value={draft}
-              onChange={(e) => handleMainTextChange(e.target.value)}
+              onChange={handleMainTextChange}
               onPaste={(e) => void onPaste(e)}
+              users={mentionUsers}
               rows={8}
               className={`${textAreaClass} min-h-28`}
-              placeholder="Jelaskan masalah… (/code untuk blok kode)"
+              placeholder="Jelaskan masalah… (/code untuk blok kode, @ untuk mention)"
             />
           )}
         </div>
