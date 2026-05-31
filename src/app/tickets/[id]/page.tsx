@@ -21,6 +21,7 @@ import {
   type TicketChatMessage,
 } from "@/lib/tickets-api";
 import { TicketChatPanel } from "@/components/TicketChatPanel";
+import { TicketInternalCommentsPanel } from "@/components/TicketInternalCommentsPanel";
 import type { TicketPriority } from "@/lib/ticket-priority";
 import { TicketDescriptionEditor } from "@/components/TicketDescriptionEditor";
 import { TicketEditableTitle } from "@/components/TicketEditableTitle";
@@ -50,6 +51,7 @@ export default function TicketDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [urlCopied, setUrlCopied] = useState(false);
+  const [commentsExpanded, setCommentsExpanded] = useState(false);
 
   const load = async () => {
     if (!id) return;
@@ -301,75 +303,47 @@ export default function TicketDetailPage() {
             </div>
           </section>
 
-          <section className="flex min-h-[min(45vh,420px)] flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white p-4 shadow-sm lg:min-h-0">
-            <h2 className="mb-1 shrink-0 text-xs font-semibold uppercase tracking-wider text-[#7C828D]">
-              Chat tiket
-            </h2>
-            <p className="mb-2 shrink-0 text-[10px] text-[#717171]">
-              Percakapan user RS dengan tim (implementator / support dev). Riwayat AI
-              tetap ditampilkan di atas.
-            </p>
-            {!ticket.session_id ? (
-              <p className="text-xs text-[#717171]">Tiket ini tidak memiliki sesi chat terhubung.</p>
-            ) : id ? (
-              <div className="flex min-h-0 flex-1 flex-col">
-                <TicketChatPanel
-                  ticketId={id}
-                  messages={messages}
-                  chatOpen={ticketChatOpen}
-                  onSent={() => void load()}
-                  onError={(message) => setError(message)}
-                />
-              </div>
-            ) : null}
-          </section>
-        </div>
+          <div className="flex min-h-[min(45vh,420px)] flex-col gap-3 overflow-hidden lg:min-h-0">
+            <section
+              className={`flex min-h-0 flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white p-4 shadow-sm ${
+                commentsExpanded ? "flex-[2]" : "flex-[3]"
+              }`}
+            >
+              <h2 className="mb-1 shrink-0 text-xs font-semibold uppercase tracking-wider text-[#7C828D]">
+                Chat tiket
+              </h2>
+              <p className="mb-2 shrink-0 text-[10px] text-[#717171]">
+                Percakapan user RS dengan tim (implementator / support dev). Riwayat AI
+                tetap ditampilkan di atas.
+              </p>
+              {!ticket.session_id ? (
+                <p className="text-xs text-[#717171]">Tiket ini tidak memiliki sesi chat terhubung.</p>
+              ) : id ? (
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <TicketChatPanel
+                    ticketId={id}
+                    messages={messages}
+                    chatOpen={ticketChatOpen}
+                    onSent={() => void load()}
+                    onError={(message) => setError(message)}
+                  />
+                </div>
+              ) : null}
+            </section>
 
-        {isStaff && (
-          <section className="flex max-h-[min(32vh,260px)] min-h-0 shrink-0 flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white p-4 shadow-sm">
-            <h2 className="mb-1 shrink-0 text-xs font-semibold uppercase tracking-wider text-[#7C828D]">
-              Komentar internal
-            </h2>
-            <p className="mb-3 shrink-0 text-[10px] text-[#717171]">
-              Hanya terlihat oleh tim staff, tidak dikirim ke user RS.
-            </p>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <ul className="mb-4 space-y-2">
-                {comments.map((c) => (
-                  <li
-                    key={c.id}
-                    className="rounded-lg border border-[#F0F0F0] bg-[#FAFAFA] px-3 py-2 text-sm"
-                  >
-                    <p className="text-[10px] text-[#717171]">
-                      {c.author_name} ·{" "}
-                      {new Date(c.created_at).toLocaleString("id-ID")}
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap">{c.body}</p>
-                  </li>
-                ))}
-                {comments.length === 0 && (
-                  <li className="text-xs text-[#717171]">Belum ada komentar internal</li>
-                )}
-              </ul>
-            </div>
-            <form onSubmit={onComment} className="flex shrink-0 flex-col gap-2 border-t border-[#F0F0F0] pt-3">
-              <textarea
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                rows={2}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-                placeholder="Catatan internal untuk tim…"
+            {isStaff && (
+              <TicketInternalCommentsPanel
+                className={commentsExpanded ? "flex-[3]" : "flex-[2]"}
+                comments={comments}
+                commentText={commentText}
+                onCommentTextChange={setCommentText}
+                onSubmit={onComment}
+                expanded={commentsExpanded}
+                onToggleExpanded={() => setCommentsExpanded((v) => !v)}
               />
-              <button
-                type="submit"
-                disabled={!commentText.trim()}
-                className="self-end rounded-lg bg-[#014547] px-4 py-1.5 text-xs text-white disabled:opacity-50"
-              >
-                Kirim komentar internal
-              </button>
-            </form>
-          </section>
-        )}
+            )}
+          </div>
+        </div>
       </div>
     </main>
   );
