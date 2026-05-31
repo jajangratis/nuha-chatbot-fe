@@ -1,7 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { appPath, normalizeNotificationHref } from "@/lib/app-path";
 import {
   dismissToast,
   isServerNotificationId,
@@ -19,7 +20,6 @@ const TYPE_STYLES: Record<NonNullable<AppNotification["type"]>, string> = {
 };
 
 export function NotificationToasts() {
-  const router = useRouter();
   const [items, setItems] = useState<AppNotification[]>([]);
 
   useEffect(() => subscribeToasts(setItems), []);
@@ -31,14 +31,16 @@ export function NotificationToasts() {
       className="pointer-events-none fixed right-4 top-4 z-[9990] flex w-[min(100vw-2rem,360px)] flex-col gap-2"
       aria-live="polite"
     >
-      {items.map((n) => (
+      {items.map((n) => {
+        const to = appPath(normalizeNotificationHref(n.href));
+        return (
         <div
           key={n.id}
           className={`pointer-events-auto rounded-xl border px-4 py-3 shadow-lg ${TYPE_STYLES[n.type ?? "info"]}`}
         >
           <div className="flex items-start justify-between gap-2">
-            <button
-              type="button"
+            <Link
+              href={to}
               onClick={() => {
                 if (isServerNotificationId(n.id)) {
                   void markServerNotificationRead(serverNotificationIdRaw(n.id));
@@ -46,7 +48,6 @@ export function NotificationToasts() {
                   markNotificationRead(n.id);
                 }
                 dismissToast(n.id);
-                router.push(n.href);
               }}
               className="min-w-0 flex-1 text-left hover:opacity-90"
             >
@@ -55,7 +56,7 @@ export function NotificationToasts() {
                 <p className="mt-0.5 line-clamp-2 text-xs opacity-90">{n.body}</p>
               )}
               <p className="mt-1 text-[10px] text-[#07C5BA]">Ketuk untuk buka →</p>
-            </button>
+            </Link>
             <button
               type="button"
               onClick={() => dismissToast(n.id)}
@@ -66,7 +67,8 @@ export function NotificationToasts() {
             </button>
           </div>
         </div>
-      ))}
+      );
+      })}
     </div>
   );
 }

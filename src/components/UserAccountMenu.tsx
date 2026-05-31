@@ -14,6 +14,8 @@ type Props = {
   /** Baris tambahan di bawah role (mis. status agent). */
   statusLine?: string;
   children?: ReactNode;
+  /** Trigger button — `onDark` untuk header teal, `onLight` untuk header putih */
+  theme?: "onDark" | "onLight";
 };
 
 function UserAvatar({
@@ -60,7 +62,18 @@ export function UserMenuLink({
   );
 }
 
-export function UserAccountMenu({ user, onLogout, statusLine, children }: Props) {
+export function UserAccountMenu({
+  user,
+  onLogout,
+  statusLine,
+  children,
+  theme = "onDark",
+}: Props) {
+  const triggerClass =
+    theme === "onLight"
+      ? "text-[#1E1F21] hover:bg-[#F0F1F3]"
+      : "text-white/95 hover:bg-white/10";
+  const chevronClass = theme === "onLight" ? "text-[#7C828D]" : "text-white/70";
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -84,7 +97,7 @@ export function UserAccountMenu({ user, onLogout, statusLine, children }: Props)
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 text-white/95 transition hover:bg-white/10"
+        className={`flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition ${triggerClass}`}
         aria-label="Menu akun"
         aria-expanded={open}
       >
@@ -92,7 +105,7 @@ export function UserAccountMenu({ user, onLogout, statusLine, children }: Props)
         <span className="hidden max-w-[120px] truncate text-xs font-medium sm:inline">
           {user.display_name}
         </span>
-        <ChevronIcon open={open} />
+        <ChevronIcon open={open} className={chevronClass} />
       </button>
 
       {open && (
@@ -154,14 +167,14 @@ export function UserAccountMenu({ user, onLogout, statusLine, children }: Props)
   );
 }
 
-function ChevronIcon({ open }: { open: boolean }) {
+function ChevronIcon({ open, className = "" }: { open: boolean; className?: string }) {
   return (
     <svg
       width="14"
       height="14"
       viewBox="0 0 24 24"
       fill="none"
-      className={`shrink-0 text-white/70 transition ${open ? "rotate-180" : ""}`}
+      className={`shrink-0 transition ${className} ${open ? "rotate-180" : ""}`}
       aria-hidden
     >
       <path

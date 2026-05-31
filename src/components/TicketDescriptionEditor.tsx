@@ -260,7 +260,7 @@ export function TicketDescriptionEditor({
   };
 
   const editorBoxClass =
-    "min-h-32 max-h-80 flex-1 overflow-y-auto rounded-lg border border-[#E8E8E8] bg-white px-3 py-2 focus-within:border-[#07C5BA] focus-within:ring-1 focus-within:ring-[#07C5BA]/30";
+    "min-h-32 max-h-80 overflow-y-auto rounded-lg border border-[#E8E8E8] bg-white px-3 py-2 focus-within:border-[#07C5BA] focus-within:ring-1 focus-within:ring-[#07C5BA]/30";
 
   const textAreaClass =
     "block w-full resize-none border-0 bg-transparent p-0 font-mono text-sm leading-relaxed text-[#333] outline-none focus:ring-0";
@@ -276,7 +276,7 @@ export function TicketDescriptionEditor({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-xs font-medium text-[#014547]">Deskripsi</h3>
         <div className="flex flex-wrap items-center gap-1.5">

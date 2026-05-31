@@ -1,8 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadAuthToken } from "@/lib/auth-api";
+import { appPath, normalizeNotificationHref } from "@/lib/app-path";
 import {
   fetchNotifications,
   markAllServerNotificationsRead,
@@ -36,8 +37,15 @@ const TYPE_DOT: Record<NonNullable<AppNotification["type"]>, string> = {
 
 const POLL_MS = 20_000;
 
-export function NotificationBell() {
-  const router = useRouter();
+type Props = {
+  theme?: "onDark" | "onLight";
+};
+
+export function NotificationBell({ theme = "onDark" }: Props) {
+  const iconBtnClass =
+    theme === "onLight"
+      ? "text-[#1E1F21] hover:bg-[#F0F1F3]"
+      : "text-white/90 hover:bg-white/10";
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<AppNotification[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -78,22 +86,17 @@ export function NotificationBell() {
 
   const unread = items.filter((n) => !n.read).length;
 
-  const onSelect = useCallback(
-    async (n: AppNotification) => {
-      if (isServerNotificationId(n.id)) {
-        try {
-          await markServerNotificationRead(serverNotificationIdRaw(n.id));
-        } catch {
-          /* ignore */
-        }
-      } else {
-        markNotificationRead(n.id);
+  const markRead = useCallback(async (n: AppNotification) => {
+    if (isServerNotificationId(n.id)) {
+      try {
+        await markServerNotificationRead(serverNotificationIdRaw(n.id));
+      } catch {
+        /* ignore */
       }
-      setOpen(false);
-      router.push(n.href);
-    },
-    [router],
-  );
+    } else {
+      markNotificationRead(n.id);
+    }
+  }, []);
 
   const onMarkAllRead = useCallback(async () => {
     markAllNotificationsRead();
@@ -112,7 +115,7 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-lg p-2 text-white/90 hover:bg-white/10"
+        className={`relative rounded-lg p-2 ${iconBtnClass}`}
         aria-label="Notifikasi"
         aria-expanded={open}
       >
@@ -151,11 +154,16 @@ export function NotificationBell() {
                 Belum ada notifikasi
               </li>
             ) : (
-              items.map((n) => (
+              items.map((n) => {
+                const to = appPath(normalizeNotificationHref(n.href));
+                return (
                 <li key={n.id}>
-                  <button
-                    type="button"
-                    onClick={() => void onSelect(n)}
+                  <Link
+                    href={to}
+                    onClick={() => {
+                      void markRead(n);
+                      setOpen(false);
+                    }}
                     className={`flex w-full gap-2 border-b border-[#F5F5F5] px-3 py-3 text-left transition hover:bg-[#F9F9F9] ${
                       n.read ? "opacity-70" : "bg-[#F6FBEF]/40"
                     }`}
@@ -182,9 +190,10 @@ export function NotificationBell() {
                         {formatTime(n.createdAt)}
                       </span>
                     </span>
-                  </button>
+                  </Link>
                 </li>
-              ))
+              );
+              })
             )}
           </ul>
         </div>

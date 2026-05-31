@@ -1,4 +1,4 @@
-import { withBasePath } from "@/lib/app-path";
+import { normalizeNotificationHref } from "@/lib/app-path";
 
 export type AppNotification = {
   id: string;
@@ -102,20 +102,23 @@ function emit() {
 
 function ensureHydrated() {
   if (items.length === 0 && typeof window !== "undefined") {
-    items = loadStored();
+    items = loadStored().map((n) => ({
+      ...n,
+      href: normalizeNotificationHref(n.href),
+    }));
   }
 }
 
 export function agentSessionHref(sessionId: string) {
-  return withBasePath(`/agent?session=${encodeURIComponent(sessionId)}`);
+  return `/agent?session=${encodeURIComponent(sessionId)}`;
 }
 
 export function supportSessionHref(sessionId: string) {
-  return withBasePath(`/support?session=${encodeURIComponent(sessionId)}`);
+  return `/support?session=${encodeURIComponent(sessionId)}`;
 }
 
 export function ticketHref(ticketId: string) {
-  return withBasePath(`/tickets/${ticketId}`);
+  return `/tickets/${ticketId}`;
 }
 
 export function subscribeNotifications(fn: Listener) {
@@ -194,7 +197,7 @@ export function syncServerNotifications(
     type: (["info", "success", "error"].includes(n.type)
       ? n.type
       : "info") as AppNotification["type"],
-    href: n.href.startsWith("/") ? withBasePath(n.href) : withBasePath(`/${n.href}`),
+    href: normalizeNotificationHref(n.href),
     read: n.read,
     createdAt: new Date(n.created_at).getTime(),
   }));
@@ -268,7 +271,7 @@ export function notifyNewChatMessages(
     href?: string;
   },
 ) {
-  const targetHref = options.href ?? withBasePath("/");
+  const targetHref = options.href ?? "/";
   const tabVisible =
     typeof document !== "undefined" && !document.hidden;
   const skipBrowser = options.onlyWhenHidden === true && tabVisible;

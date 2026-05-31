@@ -21,14 +21,10 @@ import {
   type TicketChatMessage,
 } from "@/lib/tickets-api";
 import { TicketChatPanel } from "@/components/TicketChatPanel";
-import {
-  formatTicketPriority,
-  TICKET_PRIORITIES,
-  ticketPrioritySelectClass,
-  type TicketPriority,
-} from "@/lib/ticket-priority";
-import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
+import type { TicketPriority } from "@/lib/ticket-priority";
 import { TicketDescriptionEditor } from "@/components/TicketDescriptionEditor";
+import { TicketEditableTitle } from "@/components/TicketEditableTitle";
+import { TicketMetaBar } from "@/components/TicketMetaBar";
 import { NuhaCareLogo } from "@/components/NuhaCareLogo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { UserAccountMenu, UserMenuLink } from "@/components/UserAccountMenu";
@@ -104,6 +100,19 @@ export default function TicketDetailPage() {
     }
   };
 
+  const onTitleSave = async (title: string) => {
+    if (!id) return;
+    try {
+      const { ticket: updated } = await patchTicket(id, { title });
+      setTicket((t) => (t ? { ...t, title: updated.title } : t));
+      setError(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Gagal menyimpan judul";
+      setError(msg);
+      throw e;
+    }
+  };
+
   const onSaveAssignees = async () => {
     if (!id) return;
     setSavingAssignees(true);
@@ -162,22 +171,35 @@ export default function TicketDetailPage() {
   }
 
   return (
-    <main className="min-h-full bg-[#F5F5F5]">
-      <header className="bg-gradient-to-r from-[#032626] to-[#0B6463] px-4 py-3 text-white">
-        <div className="flex items-center gap-3">
-          <NuhaCareLogo href={defaultHubPathForUser(user)} />
-          <Link href={withBasePath("/tickets")} className="text-xs text-white/80 hover:underline">
-            ← Daftar tiket
-          </Link>
-        </div>
-        <div className="mt-1 flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold">{ticket.ticket_number}</h1>
-            <p className="text-sm text-white/90">{ticket.title}</p>
+    <main className="flex h-[100dvh] flex-col overflow-hidden bg-[#F7F8F9]">
+      <header className="border-b border-[#E8E8E8] bg-white">
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+          <div className="flex min-w-0 items-center gap-3">
+            <NuhaCareLogo href={defaultHubPathForUser(user)} variant="onLight" />
+            <nav className="flex min-w-0 items-center gap-1.5 text-xs text-[#7C828D]">
+              <Link href={withBasePath("/tickets")} className="shrink-0 hover:text-[#7B68EE]">
+                Tiket
+              </Link>
+              <span aria-hidden className="text-[#C4C7CC]">
+                /
+              </span>
+              <span className="truncate font-medium text-[#1E1F21]">
+                {ticket.ticket_number}
+              </span>
+            </nav>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <NotificationBell />
+            <NotificationBell theme="onLight" />
+            <button
+              type="button"
+              onClick={() => void copyTicketUrl()}
+              className="rounded-md border border-[#E8E8E8] bg-white px-3 py-1.5 text-xs font-medium text-[#1E1F21] hover:bg-[#F7F8F9]"
+              title="Salin link halaman tiket ini"
+            >
+              {urlCopied ? "URL tersalin" : "Salin URL"}
+            </button>
             <UserAccountMenu
+              theme="onLight"
               user={user}
               onLogout={() => {
                 logout();
@@ -192,175 +214,149 @@ export default function TicketDetailPage() {
                 <UserMenuLink href={withBasePath("/support")}>Support chat</UserMenuLink>
               )}
             </UserAccountMenu>
-            <button
-              type="button"
-              onClick={() => void copyTicketUrl()}
-              className="rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20"
-              title="Salin link halaman tiket ini"
-            >
-              {urlCopied ? "URL tersalin" : "Salin URL"}
-            </button>
           </div>
+        </div>
+
+        <div className="px-4 pb-4 pt-1">
+          <TicketEditableTitle
+            value={ticket.title}
+            editable={isStaff}
+            onSave={onTitleSave}
+          />
         </div>
       </header>
 
+      <TicketMetaBar
+        status={ticket.status}
+        priority={ticket.priority}
+        hospitalName={ticket.hospital?.name}
+        module={ticket.module}
+        isStaff={isStaff}
+        onStatusChange={isStaff ? (s) => void onStatusChange(s) : undefined}
+        onPriorityChange={isStaff ? (p) => void onPriorityChange(p) : undefined}
+      />
+
       {error && (
-        <p className="bg-amber-50 px-4 py-2 text-sm text-amber-900">{error}</p>
+        <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          {error}
+        </p>
       )}
 
-      <div className="mx-auto grid max-w-6xl gap-4 p-4 lg:grid-cols-2 lg:items-stretch">
-        <section className="flex h-full min-h-0 flex-col gap-4 rounded-xl border border-[#E8E8E8] bg-white p-4">
-          <h2 className="shrink-0 text-sm font-semibold text-[#014547]">Detail</h2>
-          <dl className="grid grid-cols-2 gap-2 text-xs">
-            <dt className="text-[#717171]">Status</dt>
-            <dd>
-              {isStaff ? (
-                <select
-                  value={ticket.status}
-                  onChange={(e) => void onStatusChange(e.target.value)}
-                  className="rounded border px-1 py-0.5"
-                >
-                  {[
-                    "new",
-                    "assigned",
-                    "in_progress",
-                    "waiting_user",
-                    "resolved",
-                    "closed",
-                    "rejected",
-                    "duplicate",
-                  ].map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                ticket.status
-              )}
-            </dd>
-            <dt className="text-[#717171]">RS</dt>
-            <dd>{ticket.hospital?.name ?? "—"}</dd>
-            <dt className="text-[#717171]">Prioritas</dt>
-            <dd>
-              {isStaff ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <TicketPriorityBadge priority={ticket.priority} />
-                  <select
-                    value={ticket.priority}
-                    onChange={(e) =>
-                      void onPriorityChange(e.target.value as TicketPriority)
-                    }
-                    className={`rounded border-2 bg-white px-1.5 py-0.5 text-xs focus:outline-none focus:ring-2 ${ticketPrioritySelectClass(ticket.priority)}`}
-                  >
-                    {TICKET_PRIORITIES.map((p) => (
-                      <option key={p} value={p}>
-                        {formatTicketPriority(p)}
-                      </option>
-                    ))}
-                  </select>
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 overflow-hidden p-4">
+        <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-stretch">
+          <section className="flex min-h-[min(45vh,420px)] flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white p-4 shadow-sm lg:min-h-0">
+            <h2 className="mb-3 shrink-0 text-xs font-semibold uppercase tracking-wider text-[#7C828D]">
+              Detail
+            </h2>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1 text-xs">
+              <dl className="grid grid-cols-1 gap-3">
+                <dt className="text-[10px] font-semibold uppercase tracking-wider text-[#7C828D]">
+                  Assignee
+                </dt>
+                <dd>
+                  {isStaff ? (
+                    <div className="space-y-2">
+                      <AssigneeSearchSelect
+                        users={assignableUsers}
+                        value={selectedAssignees}
+                        onChange={setSelectedAssignees}
+                        disabled={savingAssignees}
+                        loading={loadingAssignable}
+                      />
+                      <button
+                        type="button"
+                        disabled={savingAssignees}
+                        onClick={() => void onSaveAssignees()}
+                        className="rounded bg-[#014547] px-2 py-1 text-[10px] text-white disabled:opacity-50"
+                      >
+                        {savingAssignees ? "Menyimpan..." : "Simpan assignee"}
+                      </button>
+                    </div>
+                  ) : (
+                    ticket.assignee_names ?? ticket.assignee_name ?? "—"
+                  )}
+                </dd>
+              </dl>
+              {ticket.ai_summary && isStaff && (
+                <div className="rounded-lg border border-[#F0F1F3] bg-[#FAFBFC] p-3">
+                  <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[#7C828D]">
+                    Ringkasan AI
+                  </h3>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#333]">
+                    {ticket.ai_summary}
+                  </p>
                 </div>
-              ) : (
-                <TicketPriorityBadge priority={ticket.priority} />
               )}
-            </dd>
-            <dt className="text-[#717171]">Assignee</dt>
-            <dd className="col-span-2">
-              {isStaff ? (
-                <div className="space-y-2">
-                  <AssigneeSearchSelect
-                    users={assignableUsers}
-                    value={selectedAssignees}
-                    onChange={setSelectedAssignees}
-                    disabled={savingAssignees}
-                    loading={loadingAssignable}
-                  />
-                  <button
-                    type="button"
-                    disabled={savingAssignees}
-                    onClick={() => void onSaveAssignees()}
-                    className="rounded bg-[#014547] px-2 py-1 text-[10px] text-white disabled:opacity-50"
-                  >
-                    {savingAssignees ? "Menyimpan..." : "Simpan assignee"}
-                  </button>
-                </div>
-              ) : (
-                ticket.assignee_names ?? ticket.assignee_name ?? "—"
+              {(isStaff || ticket.description) && id && (
+                <TicketDescriptionEditor
+                  ticketId={id}
+                  value={ticket.description ?? ""}
+                  editable={isStaff}
+                  onSaved={(description) =>
+                    setTicket((t) => (t ? { ...t, description } : t))
+                  }
+                  onError={(message) => setError(message)}
+                />
               )}
-            </dd>
-          </dl>
-          {ticket.ai_summary && isStaff && (
-            <div>
-              <h3 className="mb-1 text-xs font-medium text-[#014547]">Ringkasan AI</h3>
-              <p className="whitespace-pre-wrap text-sm text-[#333]">{ticket.ai_summary}</p>
             </div>
-          )}
-          {(isStaff || ticket.description) && id && (
-            <TicketDescriptionEditor
-              ticketId={id}
-              value={ticket.description ?? ""}
-              editable={isStaff}
-              onSaved={(description) =>
-                setTicket((t) => (t ? { ...t, description } : t))
-              }
-              onError={(message) => setError(message)}
-            />
-          )}
-        </section>
+          </section>
 
-        <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white p-4">
-          <h2 className="mb-1 shrink-0 text-sm font-semibold text-[#014547]">
-            Chat tiket
-          </h2>
-          <p className="mb-2 shrink-0 text-[10px] text-[#717171]">
-            Percakapan user RS dengan tim (implementator / support dev). Riwayat AI
-            tetap ditampilkan di atas.
-          </p>
-          {!ticket.session_id ? (
-            <p className="text-xs text-[#717171]">
-              Tiket ini tidak memiliki sesi chat terhubung.
+          <section className="flex min-h-[min(45vh,420px)] flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white p-4 shadow-sm lg:min-h-0">
+            <h2 className="mb-1 shrink-0 text-xs font-semibold uppercase tracking-wider text-[#7C828D]">
+              Chat tiket
+            </h2>
+            <p className="mb-2 shrink-0 text-[10px] text-[#717171]">
+              Percakapan user RS dengan tim (implementator / support dev). Riwayat AI
+              tetap ditampilkan di atas.
             </p>
-          ) : id ? (
-            <TicketChatPanel
-              ticketId={id}
-              messages={messages}
-              chatOpen={ticketChatOpen}
-              onSent={() => void load()}
-              onError={(message) => setError(message)}
-            />
-          ) : null}
-        </section>
+            {!ticket.session_id ? (
+              <p className="text-xs text-[#717171]">Tiket ini tidak memiliki sesi chat terhubung.</p>
+            ) : id ? (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <TicketChatPanel
+                  ticketId={id}
+                  messages={messages}
+                  chatOpen={ticketChatOpen}
+                  onSent={() => void load()}
+                  onError={(message) => setError(message)}
+                />
+              </div>
+            ) : null}
+          </section>
+        </div>
 
         {isStaff && (
-          <section className="w-full rounded-xl border border-[#E8E8E8] bg-white p-4 lg:col-span-2">
-            <h2 className="mb-1 text-sm font-semibold text-[#014547]">
+          <section className="flex max-h-[min(32vh,260px)] min-h-0 shrink-0 flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white p-4 shadow-sm">
+            <h2 className="mb-1 shrink-0 text-xs font-semibold uppercase tracking-wider text-[#7C828D]">
               Komentar internal
             </h2>
-            <p className="mb-3 text-[10px] text-[#717171]">
+            <p className="mb-3 shrink-0 text-[10px] text-[#717171]">
               Hanya terlihat oleh tim staff, tidak dikirim ke user RS.
             </p>
-            <ul className="mb-4 space-y-2">
-              {comments.map((c) => (
-                <li
-                  key={c.id}
-                  className="rounded-lg border border-[#F0F0F0] bg-[#FAFAFA] px-3 py-2 text-sm"
-                >
-                  <p className="text-[10px] text-[#717171]">
-                    {c.author_name} ·{" "}
-                    {new Date(c.created_at).toLocaleString("id-ID")}
-                  </p>
-                  <p className="mt-1 whitespace-pre-wrap">{c.body}</p>
-                </li>
-              ))}
-              {comments.length === 0 && (
-                <li className="text-xs text-[#717171]">Belum ada komentar internal</li>
-              )}
-            </ul>
-            <form onSubmit={onComment} className="flex flex-col gap-2">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <ul className="mb-4 space-y-2">
+                {comments.map((c) => (
+                  <li
+                    key={c.id}
+                    className="rounded-lg border border-[#F0F0F0] bg-[#FAFAFA] px-3 py-2 text-sm"
+                  >
+                    <p className="text-[10px] text-[#717171]">
+                      {c.author_name} ·{" "}
+                      {new Date(c.created_at).toLocaleString("id-ID")}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap">{c.body}</p>
+                  </li>
+                ))}
+                {comments.length === 0 && (
+                  <li className="text-xs text-[#717171]">Belum ada komentar internal</li>
+                )}
+              </ul>
+            </div>
+            <form onSubmit={onComment} className="flex shrink-0 flex-col gap-2 border-t border-[#F0F0F0] pt-3">
               <textarea
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                rows={3}
+                rows={2}
                 className="w-full rounded-lg border px-3 py-2 text-sm"
                 placeholder="Catatan internal untuk tim…"
               />

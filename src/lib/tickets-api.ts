@@ -159,6 +159,7 @@ export async function patchTicket(
   body: Partial<{
     status: string;
     priority: TicketPriority | string;
+    title: string;
     assignee_id: string;
     assignee_ids: string[];
     ai_summary: string;

@@ -22,6 +22,24 @@ export const TICKET_STATUS_THEME: Record<string, TicketStatusTheme> = {
     header: "border-b border-violet-100 bg-violet-50 text-violet-900",
     count: "bg-violet-100 text-violet-800",
   },
+  waiting_dev: {
+    label: "Menunggu Support Dev",
+    sectionAccent: "border-l-indigo-500",
+    header: "border-b border-indigo-100 bg-indigo-50 text-indigo-950",
+    count: "bg-indigo-100 text-indigo-900",
+  },
+  dev_in_progress: {
+    label: "Dikerjakan Support Dev",
+    sectionAccent: "border-l-cyan-600",
+    header: "border-b border-cyan-100 bg-cyan-50 text-cyan-950",
+    count: "bg-cyan-100 text-cyan-900",
+  },
+  verify_implementator: {
+    label: "Verif Implementator",
+    sectionAccent: "border-l-purple-500",
+    header: "border-b border-purple-100 bg-purple-50 text-purple-950",
+    count: "bg-purple-100 text-purple-900",
+  },
   in_progress: {
     label: "Dikerjakan",
     sectionAccent: "border-l-amber-500",
@@ -60,10 +78,14 @@ export const TICKET_STATUS_THEME: Record<string, TicketStatusTheme> = {
   },
 };
 
+/** Urutan operasional: Baru → … → Selesai (dropdown, board, grup list). */
 export const TICKET_STATUS_ORDER = [
   "new",
   "assigned",
   "in_progress",
+  "waiting_dev",
+  "dev_in_progress",
+  "verify_implementator",
   "waiting_user",
   "resolved",
   "closed",

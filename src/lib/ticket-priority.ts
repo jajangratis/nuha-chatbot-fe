@@ -23,6 +23,13 @@ const SELECT_RING_CLASS: Record<TicketPriority, string> = {
   urgent: "border-red-600 focus:ring-red-400",
 };
 
+const DOT_CLASS: Record<TicketPriority, string> = {
+  low: "bg-slate-400",
+  normal: "bg-sky-500",
+  high: "bg-amber-500",
+  urgent: "bg-red-600",
+};
+
 /** Map nilai lama `medium` dari DB sebelum migrasi. */
 export function normalizeTicketPriority(value: string | null | undefined): TicketPriority {
   const key = (value ?? "normal").toLowerCase();
@@ -43,4 +50,8 @@ export function ticketPriorityBadgeClass(value: string | null | undefined): stri
 
 export function ticketPrioritySelectClass(value: string | null | undefined): string {
   return SELECT_RING_CLASS[normalizeTicketPriority(value)];
+}
+
+export function ticketPriorityDotClass(value: string | null | undefined): string {
+  return DOT_CLASS[normalizeTicketPriority(value)];
 }
