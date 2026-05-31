@@ -11,13 +11,32 @@ export type TicketFilterValues = {
   assigneeIds: string[];
 };
 
-export const emptyTicketFilters = (): TicketFilterValues => ({
+export const INITIAL_TICKET_FILTERS: TicketFilterValues = {
   dateFrom: "",
   dateTo: "",
   status: "",
   priority: "",
   assigneeIds: [],
-});
+};
+
+export function emptyTicketFilters(): TicketFilterValues {
+  return {
+    ...INITIAL_TICKET_FILTERS,
+    assigneeIds: [],
+  };
+}
+
+export function normalizeTicketFilters(
+  values: Partial<TicketFilterValues> | null | undefined,
+): TicketFilterValues {
+  return {
+    dateFrom: values?.dateFrom ?? "",
+    dateTo: values?.dateTo ?? "",
+    status: values?.status ?? "",
+    priority: values?.priority ?? "",
+    assigneeIds: Array.isArray(values?.assigneeIds) ? values.assigneeIds : [],
+  };
+}
 
 export function ticketStatusFilterLabel(key: string) {
   return key ? ticketStatusLabel(key) : "Semua status";
@@ -47,10 +66,11 @@ export function buildTicketListFetchParams(
   if (filters.dateFrom) params.date_from = filters.dateFrom;
   if (filters.dateTo) params.date_to = filters.dateTo;
 
+  const assigneeIds = filters.assigneeIds ?? [];
   const allStaffSelected =
-    opts.assignableCount > 0 && filters.assigneeIds.length === opts.assignableCount;
-  if (filters.assigneeIds.length && !allStaffSelected) {
-    params.assignee_ids = filters.assigneeIds;
+    opts.assignableCount > 0 && assigneeIds.length === opts.assignableCount;
+  if (assigneeIds.length && !allStaffSelected) {
+    params.assignee_ids = assigneeIds;
   }
 
   return params;

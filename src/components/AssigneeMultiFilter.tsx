@@ -12,7 +12,12 @@ type Props = {
   disabled?: boolean;
 };
 
-export function AssigneeMultiFilter({ users, value, onChange, disabled = false }: Props) {
+export function AssigneeMultiFilter({
+  users,
+  value = [],
+  onChange,
+  disabled = false,
+}: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
 

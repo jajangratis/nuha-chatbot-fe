@@ -49,6 +49,11 @@ export function TicketFiltersPanel({
   hint = "Filter diterapkan otomatis saat nilai diubah.",
   ticketCountHint,
 }: Props) {
+  const safe = {
+    ...values,
+    assigneeIds: values.assigneeIds ?? [],
+  };
+
   return (
     <TicketFilterCard
       className={className}
@@ -66,7 +71,7 @@ export function TicketFiltersPanel({
         <TicketFilterField label="Tanggal awal">
           <input
             type="date"
-            value={values.dateFrom}
+            value={safe.dateFrom}
             onChange={(e) => onChange({ dateFrom: e.target.value })}
             className={filterControlClass}
           />
@@ -74,14 +79,14 @@ export function TicketFiltersPanel({
         <TicketFilterField label="Tanggal akhir">
           <input
             type="date"
-            value={values.dateTo}
+            value={safe.dateTo}
             onChange={(e) => onChange({ dateTo: e.target.value })}
             className={filterControlClass}
           />
         </TicketFilterField>
         <TicketFilterField label="Status">
           <select
-            value={values.status}
+            value={safe.status}
             onChange={(e) => onChange({ status: e.target.value })}
             className={filterControlClass}
           >
@@ -94,7 +99,7 @@ export function TicketFiltersPanel({
         </TicketFilterField>
         <TicketFilterField label="Prioritas">
           <select
-            value={values.priority}
+            value={safe.priority}
             onChange={(e) => onChange({ priority: e.target.value })}
             className={filterControlClass}
           >
@@ -110,7 +115,7 @@ export function TicketFiltersPanel({
           <TicketFilterField label="Assignee">
             <AssigneeMultiFilter
               users={assignableUsers}
-              value={values.assigneeIds}
+              value={safe.assigneeIds}
               onChange={(assigneeIds) => onChange({ assigneeIds })}
             />
           </TicketFilterField>

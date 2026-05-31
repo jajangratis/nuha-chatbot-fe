@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SupportHubHeader } from "@/components/SupportHubHeader";
 import { UserAccountMenu, UserMenuLink } from "@/components/UserAccountMenu";
@@ -22,6 +22,7 @@ import {
 import {
   buildTicketListFetchParams,
   emptyTicketFilters,
+  normalizeTicketFilters,
   type TicketFilterValues,
 } from "@/lib/ticket-list-filters";
 import {
@@ -39,7 +40,7 @@ export default function TicketsBoardPage() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [filters, setFilters] = useState<TicketFilterValues>(emptyTicketFilters);
+  const [filters, setFilters] = useState<TicketFilterValues>(() => emptyTicketFilters());
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -69,13 +70,35 @@ export default function TicketsBoardPage() {
     }
   }, [router]);
 
-  const reload = useCallback(async () => {
+  useEffect(() => {
+    const token = loadAuthToken();
+    if (!token) return;
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
     const params = buildTicketListFetchParams(filters, {
       assignableCount,
       limit: BOARD_TICKET_LIMIT,
     });
-    const data = await fetchTickets(params);
-    setTickets(data.tickets);
+
+    void fetchTickets(params)
+      .then((d) => {
+        if (!cancelled) setTickets(d.tickets);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Gagal memuat tiket");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     filters.dateFrom,
     filters.dateTo,
@@ -84,17 +107,6 @@ export default function TicketsBoardPage() {
     assigneeFilterKey,
     assignableCount,
   ]);
-
-  useEffect(() => {
-    const token = loadAuthToken();
-    if (!token) return;
-
-    setLoading(true);
-    setError(null);
-    void reload()
-      .catch((e) => setError(e instanceof Error ? e.message : "Gagal memuat tiket"))
-      .finally(() => setLoading(false));
-  }, [reload]);
 
   const moveTicket = async (ticketId: string, status: string) => {
     const ticket = tickets.find((t) => t.id === ticketId);
@@ -154,21 +166,30 @@ export default function TicketsBoardPage() {
     theme: TicketStatusTheme;
     tickets: Ticket[];
     droppable: boolean;
-  }[] = visibleStatusColumns.map((key) => ({
-    key,
-    theme: getTicketStatusTheme(key),
-    tickets: tickets.filter((t) => t.status === key),
-    droppable: true,
-  }));
+  }[] = useMemo(() => {
+    const cols: {
+      key: string;
+      theme: TicketStatusTheme;
+      tickets: Ticket[];
+      droppable: boolean;
+    }[] = visibleStatusColumns.map((key) => ({
+      key,
+      theme: getTicketStatusTheme(key),
+      tickets: tickets.filter((t) => t.status === key),
+      droppable: true,
+    }));
 
-  if (!filters.status && tickets.some((t) => !isKnownTicketStatus(t.status))) {
-    boardColumns.push({
-      key: "__other__",
-      theme: TICKET_STATUS_OTHER_THEME,
-      tickets: tickets.filter((t) => !isKnownTicketStatus(t.status)),
-      droppable: false,
-    });
-  }
+    if (!filters.status && tickets.some((t) => !isKnownTicketStatus(t.status))) {
+      cols.push({
+        key: "__other__",
+        theme: TICKET_STATUS_OTHER_THEME,
+        tickets: tickets.filter((t) => !isKnownTicketStatus(t.status)),
+        droppable: false,
+      });
+    }
+
+    return cols;
+  }, [visibleStatusColumns, tickets, filters.status]);
 
   const hasActiveFilters =
     filters.dateFrom ||
@@ -176,6 +197,10 @@ export default function TicketsBoardPage() {
     filters.status ||
     filters.priority ||
     filters.assigneeIds.length > 0;
+
+  const patchFilters = (patch: Partial<TicketFilterValues>) => {
+    setFilters((f) => normalizeTicketFilters({ ...f, ...patch }));
+  };
 
   return (
     <main className="min-h-full bg-[#F5F5F5]">
@@ -210,7 +235,7 @@ export default function TicketsBoardPage() {
       <div className="px-4 pt-3">
         <TicketFiltersPanel
           values={filters}
-          onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
+          onChange={patchFilters}
           onReset={() => setFilters(emptyTicketFilters())}
           assignableUsers={assignableUsers}
           isStaff={isStaff}
@@ -295,7 +320,7 @@ export default function TicketsBoardPage() {
                       <p className="mt-1 line-clamp-2 text-[#333]">{t.title}</p>
                       <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[#717171]">
                         <span>{t.hospital?.code ?? "—"}</span>
-                        {(t.assignees?.length ?? 0) > 0 && (
+                        {Array.isArray(t.assignees) && t.assignees.length > 0 && (
                           <TicketAssigneeAvatars
                             assignees={t.assignees}
                             maxVisible={3}

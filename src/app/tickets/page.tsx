@@ -26,6 +26,7 @@ import {
 import {
   buildTicketListFetchParams,
   emptyTicketFilters,
+  normalizeTicketFilters,
 } from "@/lib/ticket-list-filters";
 import {
   getTicketStatusTheme,
@@ -155,7 +156,7 @@ export default function TicketsListPage() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [filters, setFilters] = useState(emptyTicketFilters);
+  const [filters, setFilters] = useState(() => emptyTicketFilters());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [pagination, setPagination] = useState<TicketsPagination | null>(null);
@@ -191,7 +192,7 @@ export default function TicketsListPage() {
   const assignableCount = assignableUsers.length;
 
   const patchFilters = (patch: Partial<typeof filters>) => {
-    setFilters((f) => ({ ...f, ...patch }));
+    setFilters((f) => normalizeTicketFilters({ ...f, ...patch }));
     setPage(1);
   };
 
