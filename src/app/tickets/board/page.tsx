@@ -9,15 +9,21 @@ import { logout } from "@/lib/auth-api";
 import { NotificationBell } from "@/components/NotificationBell";
 import { loadAuthToken, loadAuthUser, type AuthUser } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
+import { TicketAssigneeAvatars } from "@/components/TicketAssigneeAvatars";
+import { TicketFiltersPanel } from "@/components/TicketFiltersPanel";
 import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
 import {
-  filterControlClass,
-  TicketFilterCard,
-  TicketFilterField,
-  TicketFilterHint,
-  TicketFilterResetButton,
-} from "@/components/TicketFilterPanel";
-import { fetchTickets, patchTicket, type Ticket } from "@/lib/tickets-api";
+  fetchAssignableUsers,
+  fetchTickets,
+  patchTicket,
+  type AssignableUser,
+  type Ticket,
+} from "@/lib/tickets-api";
+import {
+  buildTicketListFetchParams,
+  emptyTicketFilters,
+  type TicketFilterValues,
+} from "@/lib/ticket-list-filters";
 import {
   getTicketStatusTheme,
   isKnownTicketStatus,
@@ -27,40 +33,68 @@ import {
 } from "@/lib/ticket-status-theme";
 
 const TICKET_ID_MIME = "application/x-nuha-ticket-id";
+const BOARD_TICKET_LIMIT = 100;
 
 export default function TicketsBoardPage() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [filters, setFilters] = useState<TicketFilterValues>(emptyTicketFilters);
+  const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
 
-  const reload = useCallback(async () => {
-    const params: { date_from?: string; date_to?: string } = {};
-    if (dateFrom) params.date_from = dateFrom;
-    if (dateTo) params.date_to = dateTo;
-    const data = await fetchTickets(params);
-    setTickets(data.tickets);
-  }, [dateFrom, dateTo]);
+  const isStaff =
+    user?.role === "agent" || user?.role === "admin" || user?.role === "developer";
+
+  const assigneeFilterKey = filters.assigneeIds.join(",");
+  const assignableCount = assignableUsers.length;
 
   useEffect(() => {
     const token = loadAuthToken();
+    const authUser = loadAuthUser();
     if (!token) {
       router.replace(withBasePath("/login"));
       return;
     }
-    setUser(loadAuthUser());
+    setUser(authUser);
+
+    if (isStaffRole(authUser?.role)) {
+      void fetchAssignableUsers()
+        .then((d) => setAssignableUsers(d.users))
+        .catch(() => setAssignableUsers([]));
+    }
+  }, [router]);
+
+  const reload = useCallback(async () => {
+    const params = buildTicketListFetchParams(filters, {
+      assignableCount,
+      limit: BOARD_TICKET_LIMIT,
+    });
+    const data = await fetchTickets(params);
+    setTickets(data.tickets);
+  }, [
+    filters.dateFrom,
+    filters.dateTo,
+    filters.status,
+    filters.priority,
+    assigneeFilterKey,
+    assignableCount,
+  ]);
+
+  useEffect(() => {
+    const token = loadAuthToken();
+    if (!token) return;
+
     setLoading(true);
     setError(null);
     void reload()
       .catch((e) => setError(e instanceof Error ? e.message : "Gagal memuat tiket"))
       .finally(() => setLoading(false));
-  }, [router, reload]);
+  }, [reload]);
 
   const moveTicket = async (ticketId: string, status: string) => {
     const ticket = tickets.find((t) => t.id === ticketId);
@@ -111,19 +145,23 @@ export default function TicketsBoardPage() {
     if (ticketId) void moveTicket(ticketId, columnKey);
   };
 
+  const visibleStatusColumns = filters.status
+    ? TICKET_STATUS_ORDER.filter((key) => key === filters.status)
+    : TICKET_STATUS_ORDER;
+
   const boardColumns: {
     key: string;
     theme: TicketStatusTheme;
     tickets: Ticket[];
     droppable: boolean;
-  }[] = TICKET_STATUS_ORDER.map((key) => ({
+  }[] = visibleStatusColumns.map((key) => ({
     key,
     theme: getTicketStatusTheme(key),
     tickets: tickets.filter((t) => t.status === key),
     droppable: true,
   }));
 
-  if (tickets.some((t) => !isKnownTicketStatus(t.status))) {
+  if (!filters.status && tickets.some((t) => !isKnownTicketStatus(t.status))) {
     boardColumns.push({
       key: "__other__",
       theme: TICKET_STATUS_OTHER_THEME,
@@ -131,6 +169,13 @@ export default function TicketsBoardPage() {
       droppable: false,
     });
   }
+
+  const hasActiveFilters =
+    filters.dateFrom ||
+    filters.dateTo ||
+    filters.status ||
+    filters.priority ||
+    filters.assigneeIds.length > 0;
 
   return (
     <main className="min-h-full bg-[#F5F5F5]">
@@ -163,43 +208,17 @@ export default function TicketsBoardPage() {
       )}
 
       <div className="px-4 pt-3">
-        <TicketFilterCard
-          footer={
-            <>
-              <TicketFilterResetButton
-                onClick={() => {
-                  setDateFrom("");
-                  setDateTo("");
-                }}
-              />
-              <TicketFilterHint>
-                Filter tanggal dibuat · diterapkan otomatis
-                {(dateFrom || dateTo) && !loading
-                  ? ` · ${tickets.length} tiket ditampilkan`
-                  : ""}
-              </TicketFilterHint>
-            </>
+        <TicketFiltersPanel
+          values={filters}
+          onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
+          onReset={() => setFilters(emptyTicketFilters())}
+          assignableUsers={assignableUsers}
+          isStaff={isStaff}
+          hint="Filter diterapkan otomatis · board menampilkan maks. 100 tiket"
+          ticketCountHint={
+            hasActiveFilters && !loading ? `${tickets.length} tiket ditampilkan` : undefined
           }
-        >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <TicketFilterField label="Tanggal awal">
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className={filterControlClass}
-              />
-            </TicketFilterField>
-            <TicketFilterField label="Tanggal akhir">
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className={filterControlClass}
-              />
-            </TicketFilterField>
-          </div>
-        </TicketFilterCard>
+        />
       </div>
 
       <p className="px-4 pt-2 text-xs text-[#717171]">
@@ -274,11 +293,16 @@ export default function TicketsBoardPage() {
                         </div>
                       </div>
                       <p className="mt-1 line-clamp-2 text-[#333]">{t.title}</p>
-                      <p className="mt-1 text-[#717171]">
-                        {t.hospital?.code ?? "—"}
-                        {t.assignee_names || t.assignee_name
-                          ? ` · ${t.assignee_names ?? t.assignee_name}`
-                          : ""}
+                      <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[#717171]">
+                        <span>{t.hospital?.code ?? "—"}</span>
+                        {(t.assignees?.length ?? 0) > 0 && (
+                          <TicketAssigneeAvatars
+                            assignees={t.assignees}
+                            maxVisible={3}
+                            size="xs"
+                            emptyLabel=""
+                          />
+                        )}
                       </p>
                     </li>
                   ))}
@@ -301,4 +325,8 @@ export default function TicketsBoardPage() {
       )}
     </main>
   );
+}
+
+function isStaffRole(role: AuthUser["role"] | undefined) {
+  return role === "agent" || role === "admin" || role === "developer";
 }

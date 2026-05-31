@@ -13,16 +13,9 @@ import {
   type AuthUser,
 } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
-import { AssigneeMultiFilter } from "@/components/AssigneeMultiFilter";
 import { TicketAssigneeAvatars } from "@/components/TicketAssigneeAvatars";
+import { TicketFiltersPanel } from "@/components/TicketFiltersPanel";
 import { TicketPriorityBadge } from "@/components/TicketPriorityBadge";
-import {
-  filterControlClass,
-  TicketFilterCard,
-  TicketFilterField,
-  TicketFilterHint,
-  TicketFilterResetButton,
-} from "@/components/TicketFilterPanel";
 import {
   fetchAssignableUsers,
   fetchTickets,
@@ -30,7 +23,10 @@ import {
   type Ticket,
   type TicketsPagination,
 } from "@/lib/tickets-api";
-import { formatTicketPriority, TICKET_PRIORITIES } from "@/lib/ticket-priority";
+import {
+  buildTicketListFetchParams,
+  emptyTicketFilters,
+} from "@/lib/ticket-list-filters";
 import {
   getTicketStatusTheme,
   isKnownTicketStatus,
@@ -38,8 +34,6 @@ import {
   TICKET_STATUS_OTHER_THEME,
   ticketStatusLabel,
 } from "@/lib/ticket-status-theme";
-
-const STATUS_OPTIONS = ["", ...TICKET_STATUS_ORDER];
 
 function formatCreatedAt(iso: string) {
   return new Date(iso).toLocaleString("id-ID", {
@@ -116,8 +110,6 @@ function TicketTable({
   );
 }
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
-
 function TicketsPaginationBar({
   pagination,
   onPageChange,
@@ -163,15 +155,11 @@ export default function TicketsListPage() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [filters, setFilters] = useState(emptyTicketFilters);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [pagination, setPagination] = useState<TicketsPagination | null>(null);
   const [groupByStatus, setGroupByStatus] = useState(true);
-  const [assigneeFilterIds, setAssigneeFilterIds] = useState<string[]>([]);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -199,8 +187,13 @@ export default function TicketsListPage() {
     }
   }, [router]);
 
-  const assigneeFilterKey = assigneeFilterIds.join(",");
+  const assigneeFilterKey = filters.assigneeIds.join(",");
   const assignableCount = assignableUsers.length;
+
+  const patchFilters = (patch: Partial<typeof filters>) => {
+    setFilters((f) => ({ ...f, ...patch }));
+    setPage(1);
+  };
 
   useEffect(() => {
     const token = loadAuthToken();
@@ -208,24 +201,11 @@ export default function TicketsListPage() {
 
     setLoading(true);
     setError(null);
-    const params: {
-      status?: string;
-      priority?: string;
-      assignee_ids?: string[];
-      date_from?: string;
-      date_to?: string;
-      page: number;
-      limit: number;
-    } = { page, limit: pageSize };
-    if (statusFilter) params.status = statusFilter;
-    if (priorityFilter) params.priority = priorityFilter;
-    const allStaffSelected =
-      assignableCount > 0 && assigneeFilterIds.length === assignableCount;
-    if (assigneeFilterIds.length && !allStaffSelected) {
-      params.assignee_ids = assigneeFilterIds;
-    }
-    if (dateFrom) params.date_from = dateFrom;
-    if (dateTo) params.date_to = dateTo;
+    const params = buildTicketListFetchParams(filters, {
+      assignableCount,
+      page,
+      limit: pageSize,
+    });
 
     void fetchTickets(params)
       .then((d) => {
@@ -235,12 +215,12 @@ export default function TicketsListPage() {
       .catch((e) => setError(e instanceof Error ? e.message : "Gagal memuat"))
       .finally(() => setLoading(false));
   }, [
-    statusFilter,
-    priorityFilter,
+    filters.dateFrom,
+    filters.dateTo,
+    filters.status,
+    filters.priority,
     assigneeFilterKey,
     assignableCount,
-    dateFrom,
-    dateTo,
     page,
     pageSize,
   ]);
@@ -273,123 +253,26 @@ export default function TicketsListPage() {
       </SupportHubHeader>
 
       <div className="mx-auto max-w-5xl p-4">
-        <TicketFilterCard
+        <TicketFiltersPanel
           className="mb-4"
-          footer={
-            <>
-              <TicketFilterResetButton
-                onClick={() => {
-                  setDateFrom("");
-                  setDateTo("");
-                  setStatusFilter("");
-                  setPriorityFilter("");
-                  setAssigneeFilterIds([]);
-                  setPage(1);
-                }}
-              />
-              <TicketFilterHint>Filter diterapkan otomatis saat nilai diubah.</TicketFilterHint>
-            </>
-          }
-        >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <TicketFilterField label="Tanggal awal">
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => {
-                  setDateFrom(e.target.value);
-                  setPage(1);
-                }}
-                className={filterControlClass}
-              />
-            </TicketFilterField>
-            <TicketFilterField label="Tanggal akhir">
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => {
-                  setDateTo(e.target.value);
-                  setPage(1);
-                }}
-                className={filterControlClass}
-              />
-            </TicketFilterField>
-            <TicketFilterField label="Status">
-              <select
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setPage(1);
-                }}
-                className={filterControlClass}
-              >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s || "all"} value={s}>
-                    {s ? ticketStatusLabel(s) : "Semua status"}
-                  </option>
-                ))}
-              </select>
-            </TicketFilterField>
-            <TicketFilterField label="Prioritas">
-              <select
-                value={priorityFilter}
-                onChange={(e) => {
-                  setPriorityFilter(e.target.value);
-                  setPage(1);
-                }}
-                className={filterControlClass}
-              >
-                <option value="">Semua prioritas</option>
-                {TICKET_PRIORITIES.map((p) => (
-                  <option key={p} value={p}>
-                    {formatTicketPriority(p)}
-                  </option>
-                ))}
-              </select>
-            </TicketFilterField>
-            {isStaff && (
-              <TicketFilterField label="Assignee">
-                <AssigneeMultiFilter
-                  users={assignableUsers}
-                  value={assigneeFilterIds}
-                  onChange={(ids) => {
-                    setAssigneeFilterIds(ids);
-                    setPage(1);
-                  }}
-                />
-              </TicketFilterField>
-            )}
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <TicketFilterField label="Per halaman">
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-                className={filterControlClass}
-              >
-                {PAGE_SIZE_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n} tiket
-                  </option>
-                ))}
-              </select>
-            </TicketFilterField>
-            <TicketFilterField label="Tampilan" className="sm:col-span-2">
-              <label className="flex h-[42px] cursor-pointer items-center gap-2 rounded-lg border border-[#E0E0E0] bg-[#FAFAFA] px-3 text-sm text-[#014547] shadow-sm">
-                <input
-                  type="checkbox"
-                  checked={groupByStatus}
-                  onChange={(e) => setGroupByStatus(e.target.checked)}
-                  className="h-4 w-4 rounded border-[#CFCFCF] text-[#07C5BA] focus:ring-[#07C5BA]/30"
-                />
-                Kelompokkan per status
-              </label>
-            </TicketFilterField>
-          </div>
-        </TicketFilterCard>
+          values={filters}
+          onChange={patchFilters}
+          onReset={() => {
+            setFilters(emptyTicketFilters());
+            setPage(1);
+          }}
+          assignableUsers={assignableUsers}
+          isStaff={isStaff}
+          listOptions={{
+            pageSize,
+            onPageSizeChange: (size) => {
+              setPageSize(size);
+              setPage(1);
+            },
+            groupByStatus,
+            onGroupByStatusChange: setGroupByStatus,
+          }}
+        />
 
         {groupByStatus && !loading && tickets.length > 0 && (
           <p className="mb-3 text-xs text-[#717171]">
@@ -409,8 +292,8 @@ export default function TicketsListPage() {
           </p>
         ) : groupByStatus ? (
           <div className="space-y-4">
-            {(statusFilter
-              ? TICKET_STATUS_ORDER.filter((key) => key === statusFilter)
+            {(filters.status
+              ? TICKET_STATUS_ORDER.filter((key) => key === filters.status)
               : TICKET_STATUS_ORDER
             ).map((key) => {
               const group = tickets.filter((t) => t.status === key);
