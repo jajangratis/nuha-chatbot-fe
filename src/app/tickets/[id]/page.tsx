@@ -30,6 +30,19 @@ import { NuhaCareLogo } from "@/components/NuhaCareLogo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { UserAccountMenu, UserMenuLink } from "@/components/UserAccountMenu";
 import { logout } from "@/lib/auth-api";
+import {
+  nuhaAccentCardClass,
+  nuhaBreadcrumbLinkClass,
+  nuhaHeaderGhostButtonClass,
+  nuhaHubHeaderClass,
+  nuhaPageBgClass,
+  nuhaPanelBodyClass,
+  nuhaPanelClass,
+  nuhaPanelHeaderClass,
+  nuhaPanelHintClass,
+  nuhaPanelTitleClass,
+  nuhaSolidButtonClass,
+} from "@/lib/nuha-support-theme";
 
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -173,35 +186,34 @@ export default function TicketDetailPage() {
   }
 
   return (
-    <main className="flex h-[100dvh] flex-col overflow-hidden bg-[#F7F8F9]">
-      <header className="border-b border-[#E8E8E8] bg-white">
+    <main className={`flex h-[100dvh] flex-col overflow-hidden ${nuhaPageBgClass}`}>
+      <header className={nuhaHubHeaderClass}>
         <div className="flex items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-3">
-            <NuhaCareLogo href={defaultHubPathForUser(user)} variant="onLight" />
-            <nav className="flex min-w-0 items-center gap-1.5 text-xs text-[#7C828D]">
-              <Link href={withBasePath("/tickets")} className="shrink-0 hover:text-[#7B68EE]">
+            <NuhaCareLogo href={defaultHubPathForUser(user)} />
+            <nav className="flex min-w-0 items-center gap-1.5 text-xs text-white/70">
+              <Link href={withBasePath("/tickets")} className={nuhaBreadcrumbLinkClass}>
                 Tiket
               </Link>
-              <span aria-hidden className="text-[#C4C7CC]">
+              <span aria-hidden className="text-white/40">
                 /
               </span>
-              <span className="truncate font-medium text-[#1E1F21]">
+              <span className="truncate font-medium text-white">
                 {ticket.ticket_number}
               </span>
             </nav>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <NotificationBell theme="onLight" />
+            <NotificationBell />
             <button
               type="button"
               onClick={() => void copyTicketUrl()}
-              className="rounded-md border border-[#E8E8E8] bg-white px-3 py-1.5 text-xs font-medium text-[#1E1F21] hover:bg-[#F7F8F9]"
+              className={nuhaHeaderGhostButtonClass}
               title="Salin link halaman tiket ini"
             >
               {urlCopied ? "URL tersalin" : "Salin URL"}
             </button>
             <UserAccountMenu
-              theme="onLight"
               user={user}
               onLogout={() => {
                 logout();
@@ -224,6 +236,7 @@ export default function TicketDetailPage() {
             value={ticket.title}
             editable={isStaff}
             onSave={onTitleSave}
+            theme="onDark"
           />
         </div>
       </header>
@@ -246,13 +259,13 @@ export default function TicketDetailPage() {
 
       <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 overflow-hidden p-4">
         <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-4 lg:grid-cols-2 lg:items-stretch">
-          <section className="flex min-h-[min(45vh,420px)] flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white p-4 shadow-sm lg:min-h-0">
-            <h2 className="mb-3 shrink-0 text-xs font-semibold uppercase tracking-wider text-[#7C828D]">
-              Detail
-            </h2>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1 text-xs">
+          <section className={`${nuhaPanelClass} min-h-[min(45vh,420px)] lg:min-h-0`}>
+            <div className={nuhaPanelHeaderClass}>
+              <h2 className={nuhaPanelTitleClass}>Detail</h2>
+            </div>
+            <div className={`${nuhaPanelBodyClass} space-y-4 p-4 text-xs`}>
               <dl className="grid grid-cols-1 gap-3">
-                <dt className="text-[10px] font-semibold uppercase tracking-wider text-[#7C828D]">
+                <dt className={nuhaPanelTitleClass}>
                   Assignee
                 </dt>
                 <dd>
@@ -269,7 +282,7 @@ export default function TicketDetailPage() {
                         type="button"
                         disabled={savingAssignees}
                         onClick={() => void onSaveAssignees()}
-                        className="rounded bg-[#014547] px-2 py-1 text-[10px] text-white disabled:opacity-50"
+                        className={nuhaSolidButtonClass}
                       >
                         {savingAssignees ? "Menyimpan..." : "Simpan assignee"}
                       </button>
@@ -280,11 +293,11 @@ export default function TicketDetailPage() {
                 </dd>
               </dl>
               {ticket.ai_summary && isStaff && (
-                <div className="rounded-lg border border-[#F0F1F3] bg-[#FAFBFC] p-3">
-                  <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[#7C828D]">
+                <div className={nuhaAccentCardClass}>
+                  <h3 className={`mb-1 ${nuhaPanelTitleClass}`}>
                     Ringkasan AI
                   </h3>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#333]">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#0B1D15]">
                     {ticket.ai_summary}
                   </p>
                 </div>
@@ -305,19 +318,20 @@ export default function TicketDetailPage() {
 
           <div className="flex min-h-[min(45vh,420px)] flex-col gap-3 overflow-hidden lg:min-h-0">
             <section
-              className={`flex min-h-0 flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white p-4 shadow-sm ${
+              className={`${nuhaPanelClass} min-h-0 ${
                 commentsExpanded ? "flex-[2]" : "flex-[3]"
               }`}
             >
-              <h2 className="mb-1 shrink-0 text-xs font-semibold uppercase tracking-wider text-[#7C828D]">
-                Chat tiket
-              </h2>
-              <p className="mb-2 shrink-0 text-[10px] text-[#717171]">
-                Percakapan user RS dengan tim (implementator / support dev). Riwayat AI
-                tetap ditampilkan di atas.
-              </p>
+              <div className={nuhaPanelHeaderClass}>
+                <h2 className={nuhaPanelTitleClass}>Chat tiket</h2>
+                <p className={`mt-1 ${nuhaPanelHintClass}`}>
+                  Percakapan user RS dengan tim (implementator / support dev). Riwayat AI
+                  tetap ditampilkan di atas.
+                </p>
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col p-4 pt-3">
               {!ticket.session_id ? (
-                <p className="text-xs text-[#717171]">Tiket ini tidak memiliki sesi chat terhubung.</p>
+                <p className={`text-xs ${nuhaPanelHintClass}`}>Tiket ini tidak memiliki sesi chat terhubung.</p>
               ) : id ? (
                 <div className="flex min-h-0 flex-1 flex-col">
                   <TicketChatPanel
@@ -329,6 +343,7 @@ export default function TicketDetailPage() {
                   />
                 </div>
               ) : null}
+              </div>
             </section>
 
             {isStaff && (

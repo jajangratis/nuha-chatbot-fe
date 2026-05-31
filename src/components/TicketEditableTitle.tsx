@@ -7,6 +7,7 @@ type Props = {
   editable: boolean;
   ticketNumber?: string;
   onSave: (title: string) => Promise<void>;
+  theme?: "onLight" | "onDark";
 };
 
 export function TicketEditableTitle({
@@ -14,6 +15,7 @@ export function TicketEditableTitle({
   editable,
   ticketNumber,
   onSave,
+  theme = "onLight",
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -61,13 +63,31 @@ export function TicketEditableTitle({
     setEditing(false);
   }, [value]);
 
+  const onDark = theme === "onDark";
+  const numberClass = onDark
+    ? "text-xs font-medium tracking-wide text-white/65"
+    : "text-xs font-medium tracking-wide text-[#7C828D]";
+  const titleClass = onDark
+    ? "mt-0.5 text-2xl font-semibold leading-snug text-white"
+    : "mt-0.5 text-2xl font-semibold leading-snug text-[#1E1F21]";
+  const hintClass = onDark ? "text-[10px] text-white/55" : "text-[10px] text-[#7C828D]";
+  const editButtonClass = onDark
+    ? "mt-0.5 flex w-full min-w-0 items-start gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left transition hover:border-white/20 hover:bg-white/10 group-hover:border-white/20"
+    : "mt-0.5 flex w-full min-w-0 items-start gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left transition hover:border-[#E8E8E8] hover:bg-[#F7F8F9] group-hover:border-[#E8E8E8]";
+  const pencilClass = onDark
+    ? "mt-2 shrink-0 rounded-md p-1 text-white/70 opacity-0 transition group-hover:opacity-100"
+    : "mt-2 shrink-0 rounded-md p-1 text-[#7C828D] opacity-0 transition group-hover:opacity-100";
+  const inputClass = onDark
+    ? "w-full resize-none overflow-hidden rounded-lg border-2 border-[#07C5BA]/50 bg-white px-3 py-2 text-2xl font-semibold leading-snug text-[#0B1D15] shadow-sm outline-none ring-0 focus:border-[#07C5BA]"
+    : "w-full resize-none overflow-hidden rounded-lg border-2 border-[#07C5BA]/40 bg-white px-3 py-2 text-2xl font-semibold leading-snug text-[#1E1F21] shadow-sm outline-none ring-0 focus:border-[#07C5BA]";
+
   if (!editable) {
     return (
       <div className="min-w-0">
         {ticketNumber && (
-          <p className="text-xs font-medium tracking-wide text-[#7C828D]">{ticketNumber}</p>
+          <p className={numberClass}>{ticketNumber}</p>
         )}
-        <h1 className="mt-0.5 text-2xl font-semibold leading-snug text-[#1E1F21]">{value}</h1>
+        <h1 className={titleClass}>{value}</h1>
       </div>
     );
   }
@@ -76,7 +96,7 @@ export function TicketEditableTitle({
     return (
       <div className="min-w-0">
         {ticketNumber && (
-          <p className="text-xs font-medium tracking-wide text-[#7C828D]">{ticketNumber}</p>
+          <p className={numberClass}>{ticketNumber}</p>
         )}
         <div className="relative mt-1">
           <textarea
@@ -100,10 +120,10 @@ export function TicketEditableTitle({
               }
             }}
             onBlur={() => void commit()}
-            className="w-full resize-none overflow-hidden rounded-lg border-2 border-[#7B68EE]/40 bg-white px-3 py-2 text-2xl font-semibold leading-snug text-[#1E1F21] shadow-sm outline-none ring-0 focus:border-[#7B68EE]"
+            className={inputClass}
             aria-label="Judul tiket"
           />
-          <p className="mt-1 text-[10px] text-[#7C828D]">
+          <p className={`mt-1 ${hintClass}`}>
             Enter simpan · Esc batal{saving ? " · Menyimpan…" : ""}
           </p>
         </div>
@@ -114,21 +134,18 @@ export function TicketEditableTitle({
   return (
     <div className="group min-w-0">
       {ticketNumber && (
-        <p className="text-xs font-medium tracking-wide text-[#7C828D]">{ticketNumber}</p>
+        <p className={numberClass}>{ticketNumber}</p>
       )}
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="mt-0.5 flex w-full min-w-0 items-start gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left transition hover:border-[#E8E8E8] hover:bg-[#F7F8F9] group-hover:border-[#E8E8E8]"
+        className={editButtonClass}
         title="Klik untuk mengubah judul"
       >
-        <h1 className="min-w-0 flex-1 text-2xl font-semibold leading-snug text-[#1E1F21]">
+        <h1 className={`min-w-0 flex-1 ${titleClass.replace("mt-0.5 ", "")}`}>
           {value}
         </h1>
-        <span
-          className="mt-2 shrink-0 rounded-md p-1 text-[#7C828D] opacity-0 transition group-hover:opacity-100"
-          aria-hidden
-        >
+        <span className={pencilClass} aria-hidden>
           <PencilIcon />
         </span>
       </button>

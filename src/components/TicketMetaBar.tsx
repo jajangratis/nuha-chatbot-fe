@@ -13,6 +13,7 @@ import {
   TICKET_STATUS_ORDER,
   ticketStatusLabel,
 } from "@/lib/ticket-status-theme";
+import { nuhaMetaBarClass, nuhaPanelTitleClass } from "@/lib/nuha-support-theme";
 
 type Props = {
   status: string;
@@ -36,13 +37,13 @@ export function TicketMetaBar({
   const statusTheme = getTicketStatusTheme(status);
 
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-[#E8E8E8] bg-white px-4 py-3">
+    <div className={`flex flex-wrap items-center gap-x-6 gap-y-3 ${nuhaMetaBarClass}`}>
       <MetaField label="Status">
         {isStaff && onStatusChange ? (
           <select
             value={status}
             onChange={(e) => onStatusChange(e.target.value)}
-            className={`cursor-pointer rounded-md border-0 px-2.5 py-1 text-xs font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7B68EE]/30 ${statusTheme.count}`}
+            className={`cursor-pointer rounded-md border-0 px-2.5 py-1 text-xs font-semibold shadow-sm focus:outline-none focus:ring-2 focus:ring-[#07C5BA]/30 ${statusTheme.count}`}
           >
             {TICKET_STATUS_ORDER.map((s) => (
               <option key={s} value={s}>
@@ -82,13 +83,13 @@ export function TicketMetaBar({
 
       {hospitalName && (
         <MetaField label="RS">
-          <span className="text-sm font-medium text-[#1E1F21]">{hospitalName}</span>
+          <span className="text-sm font-medium text-[#014547]">{hospitalName}</span>
         </MetaField>
       )}
 
       {module && (
         <MetaField label="Modul">
-          <span className="text-sm font-medium text-[#1E1F21]">{module}</span>
+          <span className="text-sm font-medium text-[#014547]">{module}</span>
         </MetaField>
       )}
     </div>
@@ -98,7 +99,7 @@ export function TicketMetaBar({
 function MetaField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex min-w-[5rem] flex-col gap-1">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-[#7C828D]">
+      <span className={nuhaPanelTitleClass}>
         {label}
       </span>
       <div>{children}</div>
