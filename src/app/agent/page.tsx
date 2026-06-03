@@ -11,6 +11,7 @@ import { UserAccountMenu, UserMenuLink } from "@/components/UserAccountMenu";
 import { NotificationBell } from "@/components/NotificationBell";
 import { MessageAttachments } from "@/components/MessageAttachments";
 import { SessionLastUserReply } from "@/components/SessionLastUserReply";
+import { SessionSlaBar } from "@/components/SessionSlaBar";
 import { loadAuthToken, loadAuthUser, logout, type AuthUser } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import {
@@ -41,6 +42,7 @@ import {
   setAgentReady,
   type AgentDashboard,
 } from "@/lib/agent-api";
+import type { SessionSlaMetrics } from "@/lib/session-sla-metrics";
 import type { SupportMessage, SupportSession } from "@/lib/support-api";
 
 type UiMsg = {
@@ -108,6 +110,7 @@ export default function AgentDashboardPage() {
   const [dash, setDash] = useState<AgentDashboard | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<UiMsg[]>([]);
+  const [slaMetrics, setSlaMetrics] = useState<SessionSlaMetrics | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [actionLoading, setActionLoading] = useState<ActionLoading>(null);
@@ -170,6 +173,7 @@ export default function AgentDashboardPage() {
       }
 
       setMessages(ui);
+      setSlaMetrics(data.sla_metrics ?? null);
     },
     [],
   );
@@ -215,6 +219,7 @@ export default function AgentDashboardPage() {
 
   const openSession = useCallback((sessionId: string) => {
     knownMessageIds.current = new Set();
+    setSlaMetrics(null);
     setActiveId(sessionId);
     setHandoverOpen(false);
     forceScrollNext();
@@ -608,12 +613,10 @@ export default function AgentDashboardPage() {
                 </div>
               )}
               {activeSession && !readOnly && (
-                <div className="border-b border-[#E8E8E8] bg-[#FAFAFA] px-3 py-2">
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-[#717171]">
-                    Balasan terakhir user
-                  </p>
-                  <SessionLastUserReply at={activeSession.last_user_message_at} />
-                </div>
+                <SessionSlaBar
+                  lastUserMessageAt={activeSession.last_user_message_at}
+                  sla={slaMetrics}
+                />
               )}
               {!readOnly && (
                 <>

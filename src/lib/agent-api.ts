@@ -2,6 +2,13 @@ import { loadAuthToken } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import { supportHubFetch } from "@/lib/support-hub-fetch";
 import type { SessionMessageResult, SupportMessage, SupportSession } from "@/lib/support-api";
+import type { SessionSlaMetrics } from "@/lib/session-sla-metrics";
+
+export type AgentSessionMessagesResult = {
+  session: SupportSession;
+  messages: SupportMessage[];
+  sla_metrics?: SessionSlaMetrics;
+};
 
 function agentFetch<T>(path: string, options: RequestInit = {}) {
   return supportHubFetch<T>(path, options);
@@ -53,7 +60,7 @@ export async function claimQueueSession(sessionId: string) {
 }
 
 export async function fetchSessionMessagesAgent(sessionId: string) {
-  return agentFetch<{ session: SupportSession; messages: SupportMessage[] }>(
+  return agentFetch<AgentSessionMessagesResult>(
     `sessions/${sessionId}/messages`,
     { method: "GET" },
   );
