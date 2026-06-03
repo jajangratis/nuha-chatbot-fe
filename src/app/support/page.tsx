@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  AssistantEscalateOffer,
+  shouldShowEscalateOffer,
+} from "@/components/AssistantEscalateOffer";
 import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { SupportHubHeader } from "@/components/SupportHubHeader";
@@ -12,12 +16,9 @@ import { ChatReadReceipt } from "@/components/ChatReadReceipt";
 import { MessageAttachments } from "@/components/MessageAttachments";
 import { notifyNewChatMessages, supportSessionHref } from "@/lib/notify";
 import { useChatScrollPin } from "@/lib/chat-scroll";
-import {
-  loadAuthToken,
-  loadAuthUser,
-  logout,
-  type AuthUser,
-} from "@/lib/auth-api";
+import { chatPollIntervalMs, usePageVisible } from "@/hooks/use-page-visible";
+import { logout } from "@/lib/auth-api";
+import { useAuthSession } from "@/hooks/use-auth-session";
 import { withBasePath } from "@/lib/app-path";
 import {
   createAuthSession,
@@ -28,6 +29,7 @@ import {
   uploadAuthSessionMessage,
 } from "@/lib/support-api-auth";
 import type { SupportMessage, SupportSession } from "@/lib/support-api";
+import { isSupportChatEnded } from "@/lib/support-session-status";
 
 type UiMessage = {
   id: string;
@@ -58,12 +60,12 @@ function createId() {
 }
 
 function isSessionEnded(status: string) {
-  return status === "resolved" || status === "auto_closed";
+  return isSupportChatEnded(status);
 }
 
 export default function SupportPage() {
   const router = useRouter();
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const { ready: authReady, user } = useAuthSession();
   const [sessions, setSessions] = useState<SupportSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<UiMessage[]>([]);
@@ -79,6 +81,7 @@ export default function SupportPage() {
     listRef,
     messages,
   );
+  const pageVisible = usePageVisible();
 
   const sessionEnded = isSessionEnded(sessionStatus);
 
@@ -128,29 +131,31 @@ export default function SupportPage() {
   );
 
   useEffect(() => {
-    const token = loadAuthToken();
-    const savedUser = loadAuthUser();
-    if (!token || !savedUser) {
+    if (!authReady) return;
+    if (!user) return;
+    if (user.role !== "user") {
       router.replace(withBasePath("/login"));
       return;
     }
-    if (savedUser.role !== "user") {
-      router.replace(withBasePath("/login"));
-      return;
-    }
-    setUser(savedUser);
+    setError(null);
     void listAuthSessions().then((data) => setSessions(data.sessions));
-  }, [router]);
+  }, [authReady, user, router]);
 
   useEffect(() => {
-    if (!activeSessionId || sessionEnded) return;
+    if (!activeSessionId || sessionEnded || !pageVisible) return;
 
     const interval = setInterval(() => {
       void refreshSession(activeSessionId, true).catch(() => {});
-    }, 5_000);
+    }, chatPollIntervalMs(sessionStatus));
 
     return () => clearInterval(interval);
-  }, [activeSessionId, sessionEnded, refreshSession]);
+  }, [
+    activeSessionId,
+    sessionEnded,
+    sessionStatus,
+    pageVisible,
+    refreshSession,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -176,6 +181,12 @@ export default function SupportPage() {
   };
 
   const onNewSession = async () => {
+    if (!user?.hospital_id) {
+      setError(
+        "Profil belum memiliki rumah sakit. Keluar lalu login ulang sebagai user RS (dev: awan / password), atau hubungi admin.",
+      );
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -271,7 +282,7 @@ export default function SupportPage() {
     router.push(withBasePath("/login"));
   };
 
-  if (!user) {
+  if (!authReady || !user) {
     return (
       <main className="flex min-h-full items-center justify-center bg-[#F5F5F5]">
         <p className="text-sm text-[#717171]">Memuat...</p>
@@ -281,13 +292,20 @@ export default function SupportPage() {
 
   return (
     <main className="flex min-h-full flex-col bg-[#F5F5F5]">
-      <SupportHubHeader title="Nuha Care Support" user={user}>
+      <SupportHubHeader title="Nuha Care Support" user={user} beta>
         <NotificationBell />
         <UserAccountMenu user={user} onLogout={onLogout}>
           <UserMenuLink href={withBasePath("/tickets")}>Tiket saya</UserMenuLink>
           <UserMenuLink href={withBasePath("/")}>Beranda tamu</UserMenuLink>
         </UserAccountMenu>
       </SupportHubHeader>
+
+      {user.hospital?.name && (
+        <p className="border-b border-[#E8E8E8] bg-white px-4 py-1.5 text-xs text-[#717171]">
+          RS: <span className="font-medium text-[#014547]">{user.hospital.name}</span>
+          {user.hospital.code ? ` (${user.hospital.code})` : ""}
+        </p>
+      )}
 
       {error && (
         <p className="bg-amber-50 px-4 py-2 text-sm text-amber-900">{error}</p>
@@ -363,6 +381,15 @@ export default function SupportPage() {
                       <>
                         <ChatMarkdown content={msg.content} />
                         <MessageAttachments metadata={msg.metadata} />
+                        {sessionStatus === "open_ai" &&
+                          !sessionEnded &&
+                          shouldShowEscalateOffer(messages, msg.id) && (
+                            <AssistantEscalateOffer
+                              onEscalate={() => void onEscalate()}
+                              escalating={escalating}
+                              disabled={loading}
+                            />
+                          )}
                       </>
                     ) : msg.role === "system" ? (
                       <p className="whitespace-pre-wrap italic">{msg.content}</p>
@@ -379,22 +406,12 @@ export default function SupportPage() {
                 ))}
                 {(loading || escalating) && (
                   <p className="text-xs text-[#717171]">
-                    {escalating ? "Menghubungkan ke implementator…" : "Mengetik..."}
+                    {escalating ? "Memasukkan antrian…" : "Mengetik..."}
                   </p>
                 )}
               </div>
 
               <div className="border-t border-[#E8E8E8] bg-white px-3 pt-2">
-                {sessionStatus === "open_ai" && !sessionEnded && (
-                  <button
-                    type="button"
-                    disabled={escalating || loading}
-                    onClick={() => void onEscalate()}
-                    className="mb-2 w-full rounded-lg border border-[#014547] py-1.5 text-xs font-medium text-[#014547] hover:bg-[#014547]/5 disabled:opacity-50"
-                  >
-                    {escalating ? "Menghubungkan..." : "Hubungi IT Implementator"}
-                  </button>
-                )}
                 {["waiting_human", "handover_pending"].includes(sessionStatus) && (
                   <p className="mb-2 text-center text-xs text-[#717171]">
                     Antrian implementator

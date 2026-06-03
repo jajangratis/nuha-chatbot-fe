@@ -39,13 +39,24 @@ export async function listAuthSessions() {
   });
 }
 
-export async function createAuthSession(module?: string) {
+export type CreateAuthSessionOptions = {
+  module?: string;
+  hospital_id?: string;
+};
+
+export async function createAuthSession(options?: CreateAuthSessionOptions | string) {
+  const opts: CreateAuthSessionOptions =
+    typeof options === "string" ? { module: options } : (options ?? {});
+  const body: Record<string, string> = {};
+  if (opts.module) body.module = opts.module;
+  if (opts.hospital_id) body.hospital_id = opts.hospital_id;
+
   return authedSupportFetch<{
     session: SupportSession;
     hospital: SupportSession["hospital"];
   }>("sessions", {
     method: "POST",
-    body: JSON.stringify(module ? { module } : {}),
+    body: JSON.stringify(body),
   });
 }
 

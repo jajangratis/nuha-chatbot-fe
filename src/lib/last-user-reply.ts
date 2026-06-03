@@ -86,6 +86,8 @@ export function lastUserReplyClassName(iso: string | null | undefined): string {
 const CLOSED_STATUS_LABEL: Record<string, string> = {
   resolved: "Selesai",
   auto_closed: "Ditutup otomatis",
+  pending_ticket: "Chat ditutup — dilanjut tiket",
+  ticket_open: "Chat ditutup — dilanjut tiket",
 };
 
 export function formatSessionClosedStatus(status: string): string {

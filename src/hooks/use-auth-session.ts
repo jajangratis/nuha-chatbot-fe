@@ -48,26 +48,21 @@ export function useAuthSession(options: Options = {}): AuthSession {
         return;
       }
 
-      let user = loadAuthUser();
-      if (!user) {
-        try {
-          const me = await fetchMe();
-          user = me.user;
-          saveAuth(token, user);
-        } catch {
-          if (!cancelled) {
-            clearAuth();
-            setSession({ ready: true, token: null, user: null });
-            if (requireAuth) {
-              router.replace(withBasePath("/login"));
-            }
-          }
-          return;
+      try {
+        const me = await fetchMe();
+        const user = me.user;
+        saveAuth(token, user);
+        if (!cancelled) {
+          setSession({ ready: true, token, user });
         }
-      }
-
-      if (!cancelled) {
-        setSession({ ready: true, token, user });
+      } catch {
+        if (!cancelled) {
+          clearAuth();
+          setSession({ ready: true, token: null, user: null });
+          if (requireAuth) {
+            router.replace(withBasePath("/login"));
+          }
+        }
       }
     }
 

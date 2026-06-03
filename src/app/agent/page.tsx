@@ -23,6 +23,7 @@ import {
   formatSessionClosedAt,
   formatSessionClosedStatus,
 } from "@/lib/last-user-reply";
+import { isSupportChatEnded } from "@/lib/support-session-status";
 import { useChatScrollPin } from "@/lib/chat-scroll";
 import {
   claimQueueSession,
@@ -31,6 +32,7 @@ import {
   fetchSessionMessagesAgent,
   handoverSession,
   listHandoverTargets,
+  type HandoverTargetAgent,
   promoteSessionToTicket,
   resolveAgentSession,
   sendAgentHeartbeat,
@@ -111,9 +113,7 @@ export default function AgentDashboardPage() {
   const [actionLoading, setActionLoading] = useState<ActionLoading>(null);
   const [error, setError] = useState<string | null>(null);
   const [handoverOpen, setHandoverOpen] = useState(false);
-  const [handoverTargets, setHandoverTargets] = useState<
-    { user_id: string; display_name: string; status: string }[]
-  >([]);
+  const [handoverTargets, setHandoverTargets] = useState<HandoverTargetAgent[]>([]);
   const [handoverTo, setHandoverTo] = useState("");
   const [sidebarTab, setSidebarTab] = useState<"active" | "history">("active");
   const [closedSessions, setClosedSessions] = useState<SupportSession[]>([]);
@@ -346,6 +346,7 @@ export default function AgentDashboardPage() {
     try {
       const { agents } = await listHandoverTargets();
       setHandoverTargets(agents);
+      setHandoverTo("");
       setHandoverOpen(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal memuat rekan.");
@@ -411,8 +412,7 @@ export default function AgentDashboardPage() {
     null;
 
   const readOnly =
-    activeSession != null &&
-    (activeSession.status === "resolved" || activeSession.status === "auto_closed");
+    activeSession != null && isSupportChatEnded(activeSession.status);
 
   return (
     <main className="flex min-h-full flex-col bg-[#F5F5F5]">
@@ -657,11 +657,28 @@ export default function AgentDashboardPage() {
                       >
                         <option value="">Pilih rekan (direct)</option>
                         {handoverTargets.map((a) => (
-                          <option key={a.user_id} value={a.user_id}>
-                            {a.display_name} ({a.status})
+                          <option
+                            key={a.user_id}
+                            value={a.user_id}
+                            disabled={!a.available_for_handover}
+                          >
+                            {a.display_name} (
+                            {a.is_online ? a.status : "offline"})
                           </option>
                         ))}
                       </select>
+                      {handoverTargets.length === 0 && (
+                        <p className="mb-2 text-[#717171]">
+                          Tidak ada rekan implementator terdaftar.
+                        </p>
+                      )}
+                      {handoverTargets.some((a) => !a.available_for_handover) && (
+                        <p className="mb-2 text-[#717171]">
+                          Rekan berlabel offline harus buka dashboard dan klik
+                          &quot;Siap terima kasus&quot; agar bisa menerima
+                          handover.
+                        </p>
+                      )}
                       <div className="flex gap-2">
                         <button
                           type="button"

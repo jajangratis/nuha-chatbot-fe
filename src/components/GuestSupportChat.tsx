@@ -3,12 +3,18 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { withBasePath } from "@/lib/app-path";
+import {
+  AssistantEscalateOffer,
+  shouldShowEscalateOffer,
+} from "@/components/AssistantEscalateOffer";
+import { BetaBadge } from "@/components/BetaBadge";
 import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { ChatReadReceipt } from "@/components/ChatReadReceipt";
 import { MessageAttachments } from "@/components/MessageAttachments";
 import { notifyNewChatMessages } from "@/lib/notify";
 import { useChatScrollPin } from "@/lib/chat-scroll";
+import { chatPollIntervalMs, usePageVisible } from "@/hooks/use-page-visible";
 import {
   clearStoredGuestSession,
   createGuestSession,
@@ -91,6 +97,7 @@ export function GuestSupportChat() {
   const listRef = useRef<HTMLDivElement>(null);
   const knownMessageIds = useRef<Set<string>>(new Set());
   const { onScroll: onChatScroll, forceScrollNext } = useChatScrollPin(listRef, messages);
+  const pageVisible = usePageVisible();
 
   useEffect(() => {
     const saved = loadStoredGuestSession();
@@ -213,14 +220,22 @@ export function GuestSupportChat() {
   );
 
   useEffect(() => {
-    if (!stored || phase !== "chat" || sessionClosed) return;
+    if (!open || !stored || phase !== "chat" || sessionClosed || !pageVisible) return;
 
     const interval = setInterval(() => {
       void refreshSession(true).catch(() => {});
-    }, 5_000);
+    }, chatPollIntervalMs(sessionStatus));
 
     return () => clearInterval(interval);
-  }, [stored, phase, sessionClosed, refreshSession]);
+  }, [
+    open,
+    stored,
+    phase,
+    sessionClosed,
+    sessionStatus,
+    pageVisible,
+    refreshSession,
+  ]);
 
   const onStartSession = async (e: FormEvent) => {
     e.preventDefault();
@@ -393,11 +408,14 @@ export function GuestSupportChat() {
         {open && (
           <section
             className="flex h-[min(70vh,560px)] w-full flex-col overflow-hidden rounded-2xl border border-[#014547]/10 bg-white shadow-[0_12px_48px_rgba(1,69,71,0.18)]"
-            aria-label="Nuha Care Support"
+            aria-label="Nuha Care Support Beta"
           >
             <header className="flex items-center justify-between bg-gradient-to-r from-[#032626] to-[#0B6463] px-4 py-3 text-white">
               <div>
-                <p className="text-sm font-semibold">Nuha Care Support</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold">Nuha Care Support</p>
+                  <BetaBadge variant="onDark" />
+                </div>
                 <p className="text-xs text-white/80">
                   {phase === "intake"
                     ? "Isi data untuk memulai"
@@ -548,6 +566,15 @@ export function GuestSupportChat() {
                             metadata={msg.metadata}
                             guestToken={stored?.guestSessionToken}
                           />
+                          {sessionStatus === "open_ai" &&
+                            !sessionClosed &&
+                            shouldShowEscalateOffer(messages, msg.id) && (
+                              <AssistantEscalateOffer
+                                onEscalate={() => void onEscalate()}
+                                escalating={escalating}
+                                disabled={loading}
+                              />
+                            )}
                         </>
                       ) : msg.role === "system" ? (
                         <p className="whitespace-pre-wrap italic">{msg.content}</p>
@@ -574,18 +601,6 @@ export function GuestSupportChat() {
                 </div>
 
                 <div className="border-t border-[#E8E8E8] bg-white px-3 py-2">
-                  {sessionStatus === "open_ai" && (
-                    <button
-                      type="button"
-                      disabled={escalating || sessionClosed}
-                      onClick={() => void onEscalate()}
-                      className="mb-2 w-full rounded-lg border border-[#014547] py-1.5 text-xs font-medium text-[#014547] hover:bg-[#014547]/5 disabled:opacity-50"
-                    >
-                      {escalating
-                        ? "Menghubungkan..."
-                        : "Hubungi IT Implementator"}
-                    </button>
-                  )}
                   {["waiting_human", "handover_pending"].includes(sessionStatus) && (
                     <p className="mb-2 text-center text-xs text-[#717171]">
                       Antrian implementator

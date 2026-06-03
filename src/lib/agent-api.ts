@@ -131,8 +131,17 @@ export async function promoteSessionToTicket(
   );
 }
 
+export type HandoverTargetAgent = {
+  user_id: string;
+  display_name: string;
+  status: string;
+  is_online?: boolean;
+  available_for_handover?: boolean;
+};
+
 export async function listHandoverTargets() {
-  return agentFetch<{
-    agents: { user_id: string; display_name: string; status: string }[];
-  }>("agents/available-for-handover", { method: "GET" });
+  return agentFetch<{ agents: HandoverTargetAgent[] }>(
+    "agents/available-for-handover",
+    { method: "GET" },
+  );
 }
