@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { EmrAuthCard } from "@/components/emr/EmrAuthCard";
 import { EmrNuhaLogo } from "@/components/emr/EmrNuhaLogo";
 import { EmrPatternBackground } from "@/components/emr/EmrPatternBackground";
+import { EmrPrototypeDisclaimer } from "@/components/emr/EmrPrototypeDisclaimer";
 import { login } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import { useEmrAuthGuard } from "@/hooks/use-emr-auth-guard";
@@ -40,7 +41,7 @@ export default function EmrLoginPage() {
   }
 
   return (
-    <EmrPatternBackground>
+    <EmrPatternBackground className="items-center justify-center py-8">
       <EmrAuthCard>
         <div className="flex flex-col justify-center items-center">
           <EmrNuhaLogo size="lg" />
@@ -98,6 +99,7 @@ export default function EmrLoginPage() {
           </form>
         </div>
       </EmrAuthCard>
+      <EmrPrototypeDisclaimer variant="inline" />
     </EmrPatternBackground>
   );
 }

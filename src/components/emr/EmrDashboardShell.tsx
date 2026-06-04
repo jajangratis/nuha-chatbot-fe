@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { EmrDashboardHeader } from "@/components/emr/EmrDashboardHeader";
+import { EmrPrototypeDisclaimer } from "@/components/emr/EmrPrototypeDisclaimer";
 import { EmrSidebar } from "@/components/emr/EmrSidebar";
 import { withBasePath } from "@/lib/app-path";
 import { logout, type AuthUser } from "@/lib/auth-api";
@@ -40,6 +41,7 @@ export function EmrDashboardShell({ user, children }: Props) {
           onLogout={handleLogout}
           onSwitchApp={handleSwitchApp}
         />
+        <EmrPrototypeDisclaimer />
         <main className="flex-1 overflow-auto p-3">{children}</main>
       </div>
     </div>

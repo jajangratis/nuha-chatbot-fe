@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { EmrAppSelectDialog, type EmrPortalApp } from "@/components/emr/EmrAppSelectDialog";
 import { EmrPatternBackground } from "@/components/emr/EmrPatternBackground";
+import { EmrPrototypeDisclaimer } from "@/components/emr/EmrPrototypeDisclaimer";
 import { EMR_COLORS } from "@/components/emr/emr-app-icons";
 import { logout } from "@/lib/auth-api";
 import { clearEmrAppSelection, markEmrAppSelected } from "@/lib/emr-flow";
@@ -96,8 +97,9 @@ export default function EmrSelectAppPage() {
   }
 
   return (
-    <EmrPatternBackground>
+    <EmrPatternBackground className="items-center justify-center py-8">
       <EmrAppSelectDialog apps={PORTAL_APPS} onPick={onPick} onBack={onBack} />
+      <EmrPrototypeDisclaimer variant="inline" />
     </EmrPatternBackground>
   );
 }

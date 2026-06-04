@@ -98,6 +98,19 @@ export async function fetchMe() {
   return authFetch<{ user: AuthUser }>("auth/me", { method: "GET" });
 }
 
+/** Simpan RS ke profil (role user, sekali). */
+export async function updateAuthUserHospital(hospitalId: string) {
+  const data = await authFetch<{ user: AuthUser }>("auth/me/hospital", {
+    method: "PATCH",
+    body: JSON.stringify({ hospital_id: hospitalId }),
+  });
+  const token = loadAuthToken();
+  if (token) {
+    saveAuth(token, data.user);
+  }
+  return data;
+}
+
 export function logout() {
   clearAuth();
 }

@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { withBasePath } from "@/lib/app-path";
+import { EmrSidebarFooter } from "@/components/emr/EmrSidebarFooter";
 import { EMR_THEME } from "@/components/emr/emr-theme";
 
 type MenuNode = {
@@ -52,7 +53,11 @@ const MENU_TREE: MenuNode[] = [
     root: true,
     icon: <MdiIcon path={MDI_DASHBOARD} size={14} />,
     children: [
-      { code: "RPP_DFTR", title: "Daftar Ringkasan Pasien Pulang", icon: <MdiIcon path={MDI_CLIPBOARD} size={14} /> },
+      {
+        code: "RPP_DFTR",
+        title: "Daftar Ringkasan Pasien Pulang",
+        icon: <MdiIcon path={MDI_CLIPBOARD} size={14} />,
+      },
       { code: "RPP_MNTR", title: "Monitoring", icon: <MdiIcon path={MDI_DASHBOARD} size={14} /> },
       { code: "RPP_RJ", title: "Rawat Jalan", icon: <MdiIcon path={MDI_HOSPITAL} size={14} /> },
       { code: "RPP_RINAP", title: "Rawat INAP", icon: <MdiIcon path={MDI_BED} size={14} /> },
@@ -74,14 +79,16 @@ const MENU_TREE: MenuNode[] = [
 
 export function EmrSidebar() {
   const [query, setQuery] = useState("");
-  const [expanded, setExpanded] = useState("DASH");
+  const [expandedRoot, setExpandedRoot] = useState("DASH");
+  const [activeCode, setActiveCode] = useState("RPP_DFTR");
 
   const filtered = filterMenu(MENU_TREE, query.toLowerCase());
 
   return (
     <aside
-      className="flex shrink-0 flex-col border-r border-gray-200 bg-white"
+      className="flex shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white"
       style={{ width: EMR_THEME.drawerWidth }}
+      role="presentation"
     >
       <div className="mt-[0.7rem] flex justify-center px-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -94,7 +101,7 @@ export function EmrSidebar() {
 
       <div className="mb-2 mt-4 px-3">
         <div
-          className="-mt-1 flex w-full items-center gap-2 rounded px-3 py-[0.35rem]"
+          className="-mt-1 flex w-full items-center gap-x-2 rounded-[4px] px-3 py-[0.35rem]"
           style={{ background: EMR_THEME.mainBg }}
         >
           <MdiIcon path={MDI_MAGNIFY} size={20} color={EMR_THEME.mainGray} />
@@ -103,12 +110,15 @@ export function EmrSidebar() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Cari Menu"
-            className="w-full bg-transparent text-xs font-medium text-gray-900 outline-none placeholder:text-gray-400"
+            className="w-full bg-transparent text-[10px] font-medium text-gray-900 outline-none placeholder:text-gray-400"
           />
         </div>
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-hidden" aria-label="Menu aplikasi">
+      <nav
+        className="w-full max-w-[360px] flex-1 overflow-hidden"
+        aria-labelledby="nested-list-subheader"
+      >
         <div
           className="overflow-x-hidden overflow-y-auto"
           style={{ maxHeight: "78vh", minHeight: "78vh" }}
@@ -118,23 +128,18 @@ export function EmrSidebar() {
               key={item.code}
               node={item}
               depth={0}
-              expanded={expanded}
+              expandedRoot={expandedRoot}
+              activeCode={activeCode}
               onToggleRoot={(code) =>
-                setExpanded((prev) => (prev === code ? "" : code))
+                setExpandedRoot((prev) => (prev === code ? "" : code))
               }
+              onSelect={setActiveCode}
             />
           ))}
         </div>
       </nav>
 
-      <div className="-mt-2.5 border-t border-gray-100 px-3 py-2">
-        <span
-          className="inline-block rounded px-2 py-0.5 text-[10px] font-medium text-white"
-          style={{ background: EMR_THEME.mainBlue }}
-        >
-          Baru di v2.7.0
-        </span>
-      </div>
+      <EmrSidebarFooter />
     </aside>
   );
 }
@@ -158,32 +163,52 @@ function filterMenu(nodes: MenuNode[], q: string): MenuNode[] {
 function MenuBranch({
   node,
   depth,
-  expanded,
+  expandedRoot,
+  activeCode,
   onToggleRoot,
+  onSelect,
 }: {
   node: MenuNode;
   depth: number;
-  expanded: string;
+  expandedRoot: string;
+  activeCode: string;
   onToggleRoot: (code: string) => void;
+  onSelect: (code: string) => void;
 }) {
-  const open = expanded === node.code;
+  const isRootOpen = expandedRoot === node.code;
   const hasChildren = (node.children?.length ?? 0) > 0;
+
+  const handleClick = () => {
+    if (node.root && hasChildren) {
+      onToggleRoot(node.code);
+      return;
+    }
+    onSelect(node.code);
+  };
 
   return (
     <>
       <MenuRow
         node={node}
         depth={depth}
-        onClick={hasChildren ? () => onToggleRoot(node.code) : undefined}
-        open={open}
+        active={activeCode === node.code}
+        onClick={handleClick}
+        showChevron={Boolean(node.root)}
+        chevronUp={isRootOpen}
       />
-      {hasChildren && open ? (
+      {hasChildren && isRootOpen ? (
         <div
           className="ml-[5px] border-l border-solid"
-          style={{ borderColor: EMR_THEME.mainGray }}
+          style={{ borderColor: EMR_THEME.mainGray, borderWidth: "0.5px" }}
         >
           {node.children!.map((child) => (
-            <MenuRow key={child.code} node={child} depth={depth + 1} />
+            <MenuRow
+              key={child.code}
+              node={child}
+              depth={depth + 1}
+              active={activeCode === child.code}
+              onClick={() => onSelect(child.code)}
+            />
           ))}
         </div>
       ) : null}
@@ -194,13 +219,17 @@ function MenuBranch({
 function MenuRow({
   node,
   depth,
+  active,
   onClick,
-  open,
+  showChevron = false,
+  chevronUp = false,
 }: {
   node: MenuNode;
   depth: number;
+  active?: boolean;
   onClick?: () => void;
-  open?: boolean;
+  showChevron?: boolean;
+  chevronUp?: boolean;
 }) {
   const pl = depth === 0 ? "pl-4" : "pl-6";
 
@@ -208,16 +237,37 @@ function MenuRow({
     <button
       type="button"
       onClick={onClick}
-      className={`group flex w-full items-center py-0 text-left transition-colors hover:bg-sky-500 hover:text-white ${pl} pr-3`}
-      style={{ minHeight: 30 }}
+      className={`group relative flex h-[30px] w-full items-center py-0 text-left text-gray-900 transition-colors hover:bg-sky-500 hover:text-white ${pl} pr-3 ${
+        active ? "font-semibold" : "font-medium"
+      }`}
     >
-      <span className="mr-[0.4rem] shrink-0 text-[#1e293b] group-hover:text-white [&_svg]:group-hover:text-white">
+      {active ? (
+        <span
+          className="absolute bottom-0 left-0 top-0 w-[3px]"
+          style={{ background: EMR_THEME.mainBlue }}
+          aria-hidden
+        />
+      ) : null}
+      <span
+        className={`mr-[0.4rem] shrink-0 group-hover:text-white [&_svg]:group-hover:text-white ${
+          active ? "text-[#1e293b]" : "text-[#1e293b]"
+        }`}
+      >
         {node.icon}
       </span>
-      <span className="flex-1 text-xs font-medium capitalize leading-none">{node.title}</span>
-      {node.root && onClick ? (
+      <span
+        className="flex-1 leading-none group-hover:text-white"
+        style={{ fontSize: EMR_THEME.menuFontSize }}
+      >
+        {node.title}
+      </span>
+      {showChevron ? (
         <span className="shrink-0 text-slate-600 group-hover:text-white">
-          <MdiIcon path={open ? MDI_CHEV_UP : MDI_CHEV_DOWN} size={20} color="currentColor" />
+          <MdiIcon
+            path={chevronUp ? MDI_CHEV_UP : MDI_CHEV_DOWN}
+            size={20}
+            color="currentColor"
+          />
         </span>
       ) : null}
     </button>
@@ -227,7 +277,7 @@ function MenuRow({
 function MdiIcon({
   path,
   size,
-  color = "#1e293b",
+  color = EMR_THEME.iconColor,
   className = "",
 }: {
   path: string;

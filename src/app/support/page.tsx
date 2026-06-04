@@ -7,6 +7,7 @@ import {
   AssistantEscalateOffer,
   shouldShowEscalateOffer,
 } from "@/components/AssistantEscalateOffer";
+import { AuthHospitalPickPanel } from "@/components/AuthHospitalPickPanel";
 import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { SupportHubHeader } from "@/components/SupportHubHeader";
@@ -182,9 +183,7 @@ export default function SupportPage() {
 
   const onNewSession = async () => {
     if (!user?.hospital_id) {
-      setError(
-        "Profil belum memiliki rumah sakit. Keluar lalu login ulang sebagai user RS (dev: awan / password), atau hubungi admin.",
-      );
+      setError("Pilih rumah sakit Anda terlebih dahulu.");
       return;
     }
     setLoading(true);
@@ -286,6 +285,25 @@ export default function SupportPage() {
     return (
       <main className="flex min-h-full items-center justify-center bg-[#F5F5F5]">
         <p className="text-sm text-[#717171]">Memuat...</p>
+      </main>
+    );
+  }
+
+  const needsHospitalProfile = user.role === "user" && !user.hospital_id;
+
+  if (needsHospitalProfile) {
+    return (
+      <main className="flex h-dvh flex-col overflow-hidden bg-[#F5F5F5]">
+        <SupportHubHeader title="Nuha Care Support" user={user} beta>
+          <NotificationBell />
+          <UserAccountMenu user={user} onLogout={onLogout}>
+            <UserMenuLink href={withBasePath("/tickets")}>Tiket saya</UserMenuLink>
+            <UserMenuLink href={withBasePath("/")}>Beranda</UserMenuLink>
+          </UserAccountMenu>
+        </SupportHubHeader>
+        <div className="flex flex-1 items-center justify-center p-4">
+          <AuthHospitalPickPanel user={user} onSaved={() => {}} />
+        </div>
       </main>
     );
   }

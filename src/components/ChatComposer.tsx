@@ -54,6 +54,7 @@ export function ChatComposer({
     const files = [...pendingFiles];
     const text = value.trim();
     setPendingFiles([]);
+    onChange("");
     void Promise.resolve(onSend(text, files));
   };
 

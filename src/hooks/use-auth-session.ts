@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AUTH_CHANGE_EVENT,
   clearAuth,
   fetchMe,
   loadAuthToken,
@@ -72,6 +73,21 @@ export function useAuthSession(options: Options = {}): AuthSession {
       cancelled = true;
     };
   }, [requireAuth, router]);
+
+  useEffect(() => {
+    const sync = () => {
+      const token = loadAuthToken();
+      const stored = loadAuthUser();
+      setSession((prev) => ({
+        ...prev,
+        ready: true,
+        token,
+        user: stored,
+      }));
+    };
+    window.addEventListener(AUTH_CHANGE_EVENT, sync);
+    return () => window.removeEventListener(AUTH_CHANGE_EVENT, sync);
+  }, []);
 
   return session;
 }

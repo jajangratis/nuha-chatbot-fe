@@ -114,6 +114,14 @@ export async function fetchHospitals(q?: string) {
   return data.hospitals;
 }
 
+export async function fetchHospitalByCode(code: string) {
+  const data = await supportFetch<{ hospital: Hospital }>(
+    `hospitals/by-code/${encodeURIComponent(code)}`,
+    { method: "GET" },
+  );
+  return data.hospital;
+}
+
 export async function createGuestSession(body: {
   guest_name: string;
   hospital_id?: string;

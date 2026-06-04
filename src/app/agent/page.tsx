@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatComposer } from "@/components/ChatComposer";
@@ -107,7 +106,13 @@ function toUi(msg: SupportMessage): UiMsg {
 
 export default function AgentDashboardPage() {
   const router = useRouter();
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authUser] = useState<AuthUser | null>(() => {
+    const token = loadAuthToken();
+    const user = loadAuthUser();
+    if (!token || !user) return null;
+    if (!["agent", "developer", "admin"].includes(user.role)) return null;
+    return user;
+  });
   const [dash, setDash] = useState<AgentDashboard | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<UiMsg[]>([]);
@@ -200,13 +205,13 @@ export default function AgentDashboardPage() {
       return;
     }
 
-    setAuthUser(user);
+    void Promise.resolve()
+      .then(() => loadDashboard())
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Gagal memuat dashboard."),
+      );
 
-    void loadDashboard().catch((e) =>
-      setError(e instanceof Error ? e.message : "Gagal memuat dashboard."),
-    );
-
-    void sendAgentHeartbeat().catch(() => {});
+    void Promise.resolve().then(() => sendAgentHeartbeat().catch(() => {}));
 
     const hb = setInterval(() => {
       void sendAgentHeartbeat()

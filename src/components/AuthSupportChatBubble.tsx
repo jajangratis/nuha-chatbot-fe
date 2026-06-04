@@ -12,11 +12,16 @@ import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { ChatReadReceipt } from "@/components/ChatReadReceipt";
 import { MessageAttachments } from "@/components/MessageAttachments";
-import { loadAuthUser, type AuthUser } from "@/lib/auth-api";
 import {
-  loadEmrChatHospitalId,
-  saveEmrChatHospitalId,
-} from "@/lib/emr-flow";
+  AUTH_CHANGE_EVENT,
+  defaultHubPathForUser,
+  loadAuthUser,
+  type AuthUser,
+} from "@/lib/auth-api";
+import { AuthHospitalPickPanel } from "@/components/AuthHospitalPickPanel";
+import { staffImplicitNuhaHospital } from "@/lib/chat-hospital-default";
+import { loadEmrChatHospitalId, saveEmrChatHospitalId } from "@/lib/emr-flow";
+import { resolveStaffNuhaHospitalId } from "@/lib/resolve-staff-nuha-hospital";
 import { useChatScrollPin } from "@/lib/chat-scroll";
 import { chatPollIntervalMs, usePageVisible } from "@/hooks/use-page-visible";
 import {
@@ -27,7 +32,7 @@ import {
   sendAuthSessionMessage,
   uploadAuthSessionMessage,
 } from "@/lib/support-api-auth";
-import { fetchHospitals, type Hospital, type SupportMessage } from "@/lib/support-api";
+import type { SupportMessage } from "@/lib/support-api";
 import { isSupportChatEnded } from "@/lib/support-session-status";
 
 type UiMessage = {
@@ -44,21 +49,11 @@ type Props = {
   initialUser?: AuthUser | null;
   /** Tombol eskalasi di atas composer, bukan menempel di balasan AI; bisa diklik sejak awal. */
   standaloneEscalateButton?: boolean;
-  /** EMR: user tanpa RS di profil (mis. agent) pilih RS sekali per tab browser. */
+  /** @deprecated Picker otomatis jika profil belum punya RS. */
   hospitalPickerWhenMissing?: boolean;
-  /** EMR: tombol ke dashboard Support Hub untuk agent/admin/developer. */
+  /** Tombol ke dashboard modul sesuai peran (user → /support, agent → /agent, dll.). */
   showStaffDashboardButton?: boolean;
 };
-
-function staffDashboardHref(role: AuthUser["role"]): string | null {
-  if (role === "agent" || role === "admin") {
-    return withBasePath("/agent");
-  }
-  if (role === "developer") {
-    return withBasePath("/tickets");
-  }
-  return null;
-}
 
 function toUiMessage(msg: SupportMessage): UiMessage {
   const role =
@@ -80,16 +75,17 @@ export function AuthSupportChatBubble({
   module = "E-Medical Record V2",
   initialUser = null,
   standaloneEscalateButton = false,
-  hospitalPickerWhenMissing = false,
   showStaffDashboardButton = false,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [user, setUser] = useState<AuthUser | null>(initialUser);
-  const [confirmedEmrHospitalId, setConfirmedEmrHospitalId] = useState<string | null>(
-    () => (hospitalPickerWhenMissing ? loadEmrChatHospitalId() : null),
+  const [storedUser, setStoredUser] = useState<AuthUser | null>(() =>
+    initialUser != null ? null : loadAuthUser(),
   );
-  const [draftHospitalId, setDraftHospitalId] = useState<string | null>(null);
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const user = initialUser ?? storedUser;
+  const [confirmedEmrHospitalId, setConfirmedEmrHospitalId] = useState<string | null>(() => {
+    const u = initialUser ?? loadAuthUser();
+    return u && staffImplicitNuhaHospital(u.role) ? loadEmrChatHospitalId() : null;
+  });
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [sessionStatus, setSessionStatus] = useState("open_ai");
@@ -99,7 +95,9 @@ export function AuthSupportChatBubble({
   const [escalating, setEscalating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bootstrapping, setBootstrapping] = useState(false);
+  const [staffNuhaLoading, setStaffNuhaLoading] = useState(false);
   const bootstrapRef = useRef(false);
+  const staffNuhaResolveRef = useRef(false);
   const listRef = useRef<HTMLDivElement>(null);
   const { onScroll: onChatScroll, forceScrollNext } = useChatScrollPin(
     listRef,
@@ -107,24 +105,52 @@ export function AuthSupportChatBubble({
   );
   const pageVisible = usePageVisible();
 
+  useEffect(() => {
+    const sync = () => {
+      const stored = loadAuthUser();
+      if (stored) setStoredUser(stored);
+    };
+    window.addEventListener(AUTH_CHANGE_EVENT, sync);
+    return () => window.removeEventListener(AUTH_CHANGE_EVENT, sync);
+  }, []);
+
   const sessionClosed = isSessionEnded(sessionStatus);
 
-  const chatHospitalId = user?.hospital_id ?? confirmedEmrHospitalId;
+  const profileHospitalId = user?.hospital_id ?? user?.hospital?.id ?? null;
+  const chatHospitalId = profileHospitalId ?? confirmedEmrHospitalId;
+  /** Hanya user RS tanpa RS profil yang wajib pilih; staff dianggap NUHA otomatis. */
   const needsHospitalPick =
-    hospitalPickerWhenMissing && Boolean(user) && !user?.hospital_id && !chatHospitalId;
+    Boolean(user) && user.role === "user" && !profileHospitalId;
+  const staffNeedsNuha =
+    Boolean(user) &&
+    staffImplicitNuhaHospital(user.role) &&
+    !profileHospitalId &&
+    !chatHospitalId;
 
-  useEffect(() => {
-    const fromStorage = loadAuthUser();
-    setUser(initialUser ?? fromStorage);
-  }, [initialUser]);
+  const resolveStaffNuha = useCallback(async () => {
+    if (!user || !staffImplicitNuhaHospital(user.role) || profileHospitalId) return;
 
-  useEffect(() => {
-    if (!open || !needsHospitalPick) return;
+    const cached = loadEmrChatHospitalId();
+    if (cached) {
+      setConfirmedEmrHospitalId(cached);
+      return;
+    }
+
+    if (staffNuhaResolveRef.current) return;
+    staffNuhaResolveRef.current = true;
+    setStaffNuhaLoading(true);
     setError(null);
-    void fetchHospitals()
-      .then(setHospitals)
-      .catch(() => setHospitals([]));
-  }, [open, needsHospitalPick]);
+    try {
+      const nuhaId = await resolveStaffNuhaHospitalId();
+      saveEmrChatHospitalId(nuhaId);
+      setConfirmedEmrHospitalId(nuhaId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memuat RS NUHA.");
+    } finally {
+      staffNuhaResolveRef.current = false;
+      setStaffNuhaLoading(false);
+    }
+  }, [user, profileHospitalId]);
 
   const sessionCreateOptions = useCallback(() => {
     const opts: { module: string; hospital_id?: string } = { module };
@@ -132,7 +158,7 @@ export function AuthSupportChatBubble({
       opts.hospital_id = chatHospitalId;
     }
     return opts;
-  }, [module, user?.hospital_id, chatHospitalId]);
+  }, [module, user, chatHospitalId]);
 
   const welcomeMessage = useCallback(
     (displayName: string): UiMessage => ({
@@ -155,13 +181,14 @@ export function AuthSupportChatBubble({
       setMessages(ui);
       return data;
     },
-    [user?.display_name, welcomeMessage],
+    [user, welcomeMessage],
   );
 
   const ensureSession = useCallback(async () => {
     if (sessionId || bootstrapRef.current) return;
     if (!chatHospitalId) return;
     bootstrapRef.current = true;
+    await Promise.resolve();
     setBootstrapping(true);
     setError(null);
     try {
@@ -193,24 +220,37 @@ export function AuthSupportChatBubble({
     refreshSession,
     forceScrollNext,
     welcomeMessage,
-    user?.display_name,
+    user,
     sessionCreateOptions,
   ]);
 
-  useEffect(() => {
-    if (open && chatHospitalId) void ensureSession();
-  }, [open, chatHospitalId, ensureSession]);
-
-  const onConfirmHospitalPick = () => {
-    if (!draftHospitalId) {
-      setError("Pilih rumah sakit terlebih dahulu.");
+  const toggleChatOpen = () => {
+    if (open) {
+      setOpen(false);
       return;
     }
-    saveEmrChatHospitalId(draftHospitalId);
-    setConfirmedEmrHospitalId(draftHospitalId);
+    setError(null);
+    setOpen(true);
+    if (user && staffImplicitNuhaHospital(user.role) && !profileHospitalId) {
+      const cached = loadEmrChatHospitalId();
+      if (cached) {
+        setConfirmedEmrHospitalId(cached);
+      } else if (!confirmedEmrHospitalId) {
+        void resolveStaffNuha();
+      }
+    }
+  };
+
+  const onHospitalSaved = (updatedUser: AuthUser) => {
+    if (!initialUser) setStoredUser(updatedUser);
     setError(null);
     bootstrapRef.current = false;
   };
+
+  useEffect(() => {
+    if (!open || needsHospitalPick || !chatHospitalId || sessionId) return;
+    void Promise.resolve().then(() => ensureSession());
+  }, [open, needsHospitalPick, chatHospitalId, sessionId, ensureSession]);
 
   useEffect(() => {
     if (!open || !sessionId || sessionClosed || !pageVisible) return;
@@ -282,21 +322,16 @@ export function AuthSupportChatBubble({
     }
   };
 
-  const pickedHospital = hospitals.find((h) => h.id === chatHospitalId);
-  const hospitalLabel =
-    user?.hospital?.name ??
-    user?.hospital?.code ??
-    pickedHospital?.name ??
-    pickedHospital?.code;
+  const hospitalLabel = user?.hospital?.name ?? user?.hospital?.code;
   const showStandaloneEscalate =
     standaloneEscalateButton &&
     sessionStatus === "open_ai" &&
     !sessionClosed &&
     Boolean(sessionId);
 
-  const staffDashboard =
-    showStaffDashboardButton && user && user.role !== "user"
-      ? staffDashboardHref(user.role)
+  const headerDashboard =
+    showStaffDashboardButton && user
+      ? withBasePath(defaultHubPathForUser(user))
       : null;
 
   return (
@@ -328,9 +363,9 @@ export function AuthSupportChatBubble({
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                {staffDashboard && (
+                {headerDashboard && (
                   <Link
-                    href={staffDashboard}
+                    href={headerDashboard}
                     className="rounded-lg border border-white/35 bg-white/10 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-white/20"
                   >
                     Dashboard
@@ -351,34 +386,28 @@ export function AuthSupportChatBubble({
               <p className="bg-amber-50 px-3 py-2 text-xs text-amber-900">{error}</p>
             )}
 
-            {needsHospitalPick ? (
-              <div className="flex flex-1 flex-col gap-3 bg-[#F5F5F5] p-4">
-                <p className="text-sm text-[#0B1D15]">
-                  Pilih rumah sakit untuk memulai chat dukungan di portal EMR.
-                </p>
-                <label className="text-xs font-medium text-[#014547]">
-                  Rumah sakit
-                  <select
-                    value={draftHospitalId ?? ""}
-                    onChange={(e) => setDraftHospitalId(e.target.value || null)}
-                    className="mt-1 w-full rounded-lg border border-[#E0E0E0] bg-white px-3 py-2 text-sm"
-                  >
-                    <option value="">Pilih rumah sakit</option>
-                    {hospitals.map((h) => (
-                      <option key={h.id} value={h.id}>
-                        {h.name} ({h.code})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  disabled={!draftHospitalId}
-                  onClick={onConfirmHospitalPick}
-                  className="mt-auto rounded-full bg-gradient-to-r from-[#639B15] to-[#AAE053] py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  Mulai chat
-                </button>
+            {needsHospitalPick && user ? (
+              <AuthHospitalPickPanel user={user} onSaved={onHospitalSaved} compact />
+            ) : staffNeedsNuha ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-[#F5F5F5] p-4 text-center">
+                {error ? (
+                  <>
+                    <p className="text-xs text-amber-900">{error}</p>
+                    <button
+                      type="button"
+                      onClick={() => void resolveStaffNuha()}
+                      className="rounded-full border border-[#014547] px-4 py-2 text-xs font-medium text-[#014547]"
+                    >
+                      Coba lagi
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-sm text-[#717171]">
+                    {staffNuhaLoading
+                      ? "Menyiapkan konteks RS NUHA…"
+                      : "Memuat RS NUHA…"}
+                  </p>
+                )}
               </div>
             ) : bootstrapping && !sessionId ? (
               <p className="flex flex-1 items-center justify-center bg-[#F5F5F5] text-sm text-[#717171]">
@@ -490,7 +519,7 @@ export function AuthSupportChatBubble({
 
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={toggleChatOpen}
           className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-[#639B15] to-[#AAE053] text-white shadow-[0_8px_32px_rgba(99,155,21,0.45)] transition hover:scale-105 active:scale-95"
           aria-label={open ? "Tutup support chat" : "Buka support chat"}
         >
