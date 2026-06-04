@@ -119,10 +119,9 @@ export function AuthSupportChatBubble({
   const profileHospitalId = user?.hospital_id ?? user?.hospital?.id ?? null;
   const chatHospitalId = profileHospitalId ?? confirmedEmrHospitalId;
   /** Hanya user RS tanpa RS profil yang wajib pilih; staff dianggap NUHA otomatis. */
-  const needsHospitalPick =
-    Boolean(user) && user.role === "user" && !profileHospitalId;
+  const needsHospitalPick = user?.role === "user" && !profileHospitalId;
   const staffNeedsNuha =
-    Boolean(user) &&
+    user != null &&
     staffImplicitNuhaHospital(user.role) &&
     !profileHospitalId &&
     !chatHospitalId;
