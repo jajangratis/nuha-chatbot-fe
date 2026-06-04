@@ -3,6 +3,7 @@
 export const SUPPORT_CHAT_ENDED_STATUSES = [
   "resolved",
   "auto_closed",
+  /** legacy DB rows — chat was closed immediately on promote */
   "pending_ticket",
   "ticket_open",
 ] as const;

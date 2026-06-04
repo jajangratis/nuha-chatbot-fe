@@ -113,6 +113,8 @@ export async function fetchTicketDetail(id: string) {
     }[];
     messages: TicketChatMessage[];
     ticket_chat_open: boolean;
+    support_chat_status?: string | null;
+    chat_closed_reason?: "ticket" | "session" | "no_session" | null;
     has_session: boolean;
   }>(`tickets/${id}`, { method: "GET" });
 }

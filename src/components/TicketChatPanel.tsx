@@ -6,6 +6,13 @@ import { ChatMarkdown } from "@/components/ChatMarkdown";
 import { MessageAttachments } from "@/components/MessageAttachments";
 import { useChatScrollPin } from "@/lib/chat-scroll";
 import { formatAssigneeRole } from "@/lib/tickets-api";
+
+const SUPPORT_CHAT_CLOSED_HINT: Record<string, string> = {
+  resolved: "diselesaikan oleh implementator",
+  auto_closed: "ditutup otomatis (tidak ada balasan 10 menit)",
+  pending_ticket: "ditutup (riwayat lama)",
+  ticket_open: "ditutup (riwayat lama)",
+};
 import {
   sendTicketChatMessage,
   uploadTicketChatMessage,
@@ -16,6 +23,8 @@ type Props = {
   ticketId: string;
   messages: TicketChatMessage[];
   chatOpen: boolean;
+  chatClosedReason?: "ticket" | "session" | "no_session" | null;
+  supportChatStatus?: string | null;
   onSent: () => void;
   onError: (message: string) => void;
 };
@@ -40,10 +49,28 @@ function bubbleClass(role: string) {
   return "bg-[#F5F5F5]";
 }
 
+function closedChatHint(
+  reason: Props["chatClosedReason"],
+  supportChatStatus?: string | null,
+): string {
+  if (reason === "ticket") {
+    return "Chat ditutup karena tiket sudah selesai atau ditutup.";
+  }
+  if (reason === "session") {
+    const statusLabel = supportChatStatus
+      ? (SUPPORT_CHAT_CLOSED_HINT[supportChatStatus] ?? supportChatStatus)
+      : "ditutup";
+    return `Sesi chat support sudah ${statusLabel}. Tiket masih dapat dipantau di halaman ini — tidak dapat membalas di chat.`;
+  }
+  return "Chat tidak tersedia untuk tiket ini.";
+}
+
 export function TicketChatPanel({
   ticketId,
   messages,
   chatOpen,
+  chatClosedReason = null,
+  supportChatStatus = null,
   onSent,
   onError,
 }: Props) {
@@ -127,8 +154,8 @@ export function TicketChatPanel({
           className="mt-3 shrink-0 border-t border-[#E8E8E8] pt-3"
         />
       ) : (
-        <p className="mt-3 shrink-0 border-t border-[#E8E8E8] pt-3 text-xs text-[#717171]">
-          Chat ditutup karena tiket sudah selesai atau ditutup.
+        <p className="mt-3 shrink-0 rounded-lg border border-[#E8E8E8] bg-[#FAFAFA] px-3 py-2 text-xs text-[#717171]">
+          {closedChatHint(chatClosedReason, supportChatStatus)}
         </p>
       )}
     </div>

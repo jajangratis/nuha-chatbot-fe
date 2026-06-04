@@ -87,20 +87,24 @@ export function MarkdownImage({ src, alt, className }: Props) {
 
   if (failed) {
     return (
-      <p className="my-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+      <span
+        role="alert"
+        className={`my-2 block rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 ${className ?? ""}`}
+      >
         Gambar tidak dapat dimuat{alt ? `: ${alt}` : ""}. Buka mode Pratinjau setelah
         login, atau simpan ulang deskripsi.
-      </p>
+      </span>
     );
   }
 
   if (!displaySrc) {
     return (
-      <div
-        className={`my-2 flex h-24 max-w-full items-center justify-center rounded-lg border border-dashed border-[#E8E8E8] bg-[#FAFAFA] text-xs text-[#717171] ${className ?? ""}`}
+      <span
+        role="status"
+        className={`my-2 flex h-24 w-full max-w-full items-center justify-center rounded-lg border border-dashed border-[#E8E8E8] bg-[#FAFAFA] text-xs text-[#717171] ${className ?? ""}`}
       >
         Memuat gambar…
-      </div>
+      </span>
     );
   }
 

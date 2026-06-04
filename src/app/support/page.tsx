@@ -291,7 +291,7 @@ export default function SupportPage() {
   }
 
   return (
-    <main className="flex min-h-full flex-col bg-[#F5F5F5]">
+    <main className="flex h-dvh flex-col overflow-hidden bg-[#F5F5F5]">
       <SupportHubHeader title="Nuha Care Support" user={user} beta>
         <NotificationBell />
         <UserAccountMenu user={user} onLogout={onLogout}>
@@ -311,8 +311,8 @@ export default function SupportPage() {
         <p className="bg-amber-50 px-4 py-2 text-sm text-amber-900">{error}</p>
       )}
 
-      <div className="flex flex-1 flex-col gap-4 p-4 md:flex-row">
-        <aside className="w-full shrink-0 rounded-xl border border-[#E8E8E8] bg-white p-3 md:w-56">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4 md:flex-row">
+        <aside className="flex w-full shrink-0 flex-col rounded-xl border border-[#E8E8E8] bg-white p-3 md:h-full md:w-56 md:min-h-0">
           <button
             type="button"
             onClick={() => void onNewSession()}
@@ -322,7 +322,7 @@ export default function SupportPage() {
             + Sesi baru
           </button>
           <p className="mb-2 text-xs font-medium text-[#717171]">Sesi sebelumnya</p>
-          <ul className="max-h-48 space-y-1 overflow-y-auto text-xs md:max-h-[60vh]">
+          <ul className="max-h-40 space-y-1 overflow-y-auto text-xs md:min-h-0 md:flex-1 md:max-h-none">
             {sessions.map((s) => (
               <li key={s.id}>
                 <button
@@ -344,7 +344,7 @@ export default function SupportPage() {
           </ul>
         </aside>
 
-        <section className="flex min-h-[400px] flex-1 flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white">
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#E8E8E8] bg-white">
           {!activeSessionId ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
               <p className="text-sm text-[#717171]">
@@ -360,11 +360,11 @@ export default function SupportPage() {
               </button>
             </div>
           ) : (
-            <>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div
                 ref={listRef}
                 onScroll={onChatScroll}
-                className="flex flex-1 flex-col gap-3 overflow-y-auto bg-[#F5F5F5] p-4"
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-[#F5F5F5] p-4"
               >
                 {messages.map((msg) => (
                   <article
@@ -445,7 +445,7 @@ export default function SupportPage() {
                   compact
                 />
               )}
-            </>
+            </div>
           )}
         </section>
       </div>

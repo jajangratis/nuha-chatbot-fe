@@ -56,6 +56,10 @@ export default function TicketDetailPage() {
   >([]);
   const [messages, setMessages] = useState<TicketChatMessage[]>([]);
   const [ticketChatOpen, setTicketChatOpen] = useState(false);
+  const [chatClosedReason, setChatClosedReason] = useState<
+    "ticket" | "session" | "no_session" | null
+  >(null);
+  const [supportChatStatus, setSupportChatStatus] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [loadingAssignable, setLoadingAssignable] = useState(false);
@@ -73,7 +77,9 @@ export default function TicketDetailPage() {
     setSelectedAssignees((data.ticket.assignees ?? []).map((a) => a.id));
     setComments(data.comments);
     setMessages(data.messages);
-    setTicketChatOpen(Boolean(data.ticket_chat_open && data.has_session));
+    setTicketChatOpen(Boolean(data.ticket_chat_open));
+    setChatClosedReason(data.chat_closed_reason ?? null);
+    setSupportChatStatus(data.support_chat_status ?? null);
   };
 
   useEffect(() => {
@@ -339,6 +345,8 @@ export default function TicketDetailPage() {
                     ticketId={id}
                     messages={messages}
                     chatOpen={ticketChatOpen}
+                    chatClosedReason={chatClosedReason}
+                    supportChatStatus={supportChatStatus}
                     onSent={() => void load()}
                     onError={(message) => setError(message)}
                   />

@@ -12,6 +12,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { MessageAttachments } from "@/components/MessageAttachments";
 import { SessionLastUserReply } from "@/components/SessionLastUserReply";
 import { SessionSlaBar } from "@/components/SessionSlaBar";
+import { SessionUnreadBadge } from "@/components/SessionUnreadBadge";
 import { loadAuthToken, loadAuthUser, logout, type AuthUser } from "@/lib/auth-api";
 import { withBasePath } from "@/lib/app-path";
 import {
@@ -174,6 +175,15 @@ export default function AgentDashboardPage() {
 
       setMessages(ui);
       setSlaMetrics(data.sla_metrics ?? null);
+      setDash((d) => {
+        if (!d) return d;
+        return {
+          ...d,
+          active_sessions: d.active_sessions.map((s) =>
+            s.id === sessionId ? { ...s, unread_user_count: 0 } : s,
+          ),
+        };
+      });
     },
     [],
   );
@@ -315,6 +325,7 @@ export default function AgentDashboardPage() {
         href: ticketHref(result.ticket.id),
       });
       await loadDashboard();
+      await loadMessages(activeId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal buat tiket.");
     } finally {
@@ -516,12 +527,19 @@ export default function AgentDashboardPage() {
                   <button
                     type="button"
                     onClick={() => openSession(s.id)}
-                    className={`w-full rounded p-2 text-left ${
+                    className={`flex w-full items-start justify-between gap-2 rounded p-2 text-left ${
                       activeId === s.id ? "bg-[#014547]/10 text-[#014547]" : "hover:bg-[#F5F5F5]"
                     }`}
                   >
-                    <p className="font-medium">{sessionLabel(s)}</p>
-                    <SessionLastUserReply at={s.last_user_message_at} />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{sessionLabel(s)}</p>
+                      <SessionLastUserReply at={s.last_user_message_at} />
+                    </div>
+                    <SessionUnreadBadge
+                      count={
+                        activeId === s.id ? 0 : (s.unread_user_count ?? 0)
+                      }
+                    />
                   </button>
                 </li>
               ))}
@@ -618,9 +636,20 @@ export default function AgentDashboardPage() {
                   sla={slaMetrics}
                 />
               )}
+              {activeSession && !readOnly && (activeSession.ticket_id || slaMetrics?.ticket_number) && (
+                <div className="border-b border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-950">
+                  Tiket{" "}
+                  <strong>
+                    {activeSession.ticket_number ?? slaMetrics?.ticket_number ?? "terbuat"}
+                  </strong>{" "}
+                  — chat tetap aktif. Tutup dengan &quot;Selesai&quot; atau otomatis jika user
+                  tidak membalas 10 menit.
+                </div>
+              )}
               {!readOnly && (
                 <>
                   <div className="flex flex-wrap gap-2 border-b border-[#E8E8E8] p-2">
+                    {!activeSession?.ticket_id && !slaMetrics?.ticket_number && (
                     <button
                       type="button"
                       onClick={() => void onPromoteTicket()}
@@ -629,6 +658,7 @@ export default function AgentDashboardPage() {
                     >
                       {actionLoading === "promote" ? "Membuat tiket…" : "Buat tiket gangguan"}
                     </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => void onResolve()}

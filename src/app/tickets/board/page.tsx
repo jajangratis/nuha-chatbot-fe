@@ -318,7 +318,7 @@ export default function TicketsBoardPage() {
                         </div>
                       </div>
                       <p className="mt-1 line-clamp-2 text-[#333]">{t.title}</p>
-                      <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[#717171]">
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[#717171]">
                         <span>{t.hospital?.code ?? "—"}</span>
                         {Array.isArray(t.assignees) && t.assignees.length > 0 && (
                           <TicketAssigneeAvatars
@@ -328,7 +328,7 @@ export default function TicketsBoardPage() {
                             emptyLabel=""
                           />
                         )}
-                      </p>
+                      </div>
                     </li>
                   ))}
                   {colTickets.length === 0 && (

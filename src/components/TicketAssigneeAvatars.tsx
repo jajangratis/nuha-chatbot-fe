@@ -58,8 +58,12 @@ export function TicketAssigneeAvatars({
     .join(", ");
 
   return (
-    <div className="flex items-center" role="group" aria-label={assignees.map((a) => a.display_name).join(", ")}>
-      <div className="flex items-center -space-x-2">
+    <span
+      className="inline-flex items-center"
+      role="group"
+      aria-label={assignees.map((a) => a.display_name).join(", ")}
+    >
+      <span className="inline-flex items-center -space-x-2">
         {visible.map((a, i) => (
           <AssigneeAvatar
             key={a.id}
@@ -77,7 +81,7 @@ export function TicketAssigneeAvatars({
             +{overflow}
           </span>
         )}
-      </div>
-    </div>
+      </span>
+    </span>
   );
 }

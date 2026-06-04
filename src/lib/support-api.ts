@@ -20,6 +20,7 @@ export type SupportSession = {
   handover_status?: string;
   last_user_message_at?: string | null;
   last_activity_at?: string | null;
+  unread_user_count?: number;
   ticket_id?: string | null;
   ticket_number?: string | null;
   ticket_created_at?: string | null;
