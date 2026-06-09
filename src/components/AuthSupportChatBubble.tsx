@@ -7,6 +7,12 @@ import {
   AssistantEscalateOffer,
   shouldShowEscalateOffer,
 } from "@/components/AssistantEscalateOffer";
+import {
+  AssistantFallbackOffer,
+  GeneralWebAnswerBadge,
+  getAssistantAnswerMode,
+  shouldShowFallbackOffer,
+} from "@/components/AssistantFallbackOffer";
 import { BetaBadge } from "@/components/BetaBadge";
 import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
@@ -30,6 +36,7 @@ import {
   fetchAuthSessionMessages,
   listAuthSessions,
   sendAuthSessionMessage,
+  sendAuthSessionGeneralReply,
   uploadAuthSessionMessage,
 } from "@/lib/support-api-auth";
 import type { SupportMessage } from "@/lib/support-api";
@@ -41,6 +48,7 @@ type UiMessage = {
   content: string;
   read_at?: string | null;
   metadata?: unknown;
+  answerMode?: string;
 };
 
 type Props = {
@@ -64,6 +72,7 @@ function toUiMessage(msg: SupportMessage): UiMessage {
     content: msg.content,
     read_at: msg.read_at,
     metadata: msg.metadata,
+    answerMode: getAssistantAnswerMode(msg.metadata),
   };
 }
 
@@ -93,6 +102,7 @@ export function AuthSupportChatBubble({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [escalating, setEscalating] = useState(false);
+  const [generalLoading, setGeneralLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bootstrapping, setBootstrapping] = useState(false);
   const [staffNuhaLoading, setStaffNuhaLoading] = useState(false);
@@ -285,6 +295,25 @@ export function AuthSupportChatBubble({
     }
   };
 
+  const onGeneralSearch = async (query: string) => {
+    if (!sessionId || generalLoading || loading || sessionClosed) return;
+    setGeneralLoading(true);
+    setError(null);
+    forceScrollNext();
+    try {
+      const result = await sendAuthSessionGeneralReply(sessionId, query);
+      if (result.assistantMessage) {
+        setMessages((prev) => [...prev, toUiMessage(result.assistantMessage)]);
+      }
+      setSessionStatus(result.session.status);
+      forceScrollNext();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal mencari jawaban umum.");
+    } finally {
+      setGeneralLoading(false);
+    }
+  };
+
   const onEscalate = async () => {
     if (!sessionId || escalating || sessionClosed) return;
     setEscalating(true);
@@ -432,11 +461,27 @@ export function AuthSupportChatBubble({
                     >
                       {msg.role === "assistant" ? (
                         <>
+                          {msg.answerMode === "general_web" && <GeneralWebAnswerBadge />}
                           <ChatMarkdown content={msg.content} />
                           <MessageAttachments metadata={msg.metadata} />
                           {!standaloneEscalateButton &&
                             sessionStatus === "open_ai" &&
                             !sessionClosed &&
+                            shouldShowFallbackOffer(messages, msg.id, msg.answerMode) && (
+                              <AssistantFallbackOffer
+                                messages={messages}
+                                assistantMessageId={msg.id}
+                                onEscalate={() => void onEscalate()}
+                                onGeneralSearch={(q) => void onGeneralSearch(q)}
+                                escalating={escalating}
+                                generalLoading={generalLoading}
+                                disabled={loading}
+                              />
+                            )}
+                          {!standaloneEscalateButton &&
+                            sessionStatus === "open_ai" &&
+                            !sessionClosed &&
+                            msg.answerMode !== "out_of_scope" &&
                             shouldShowEscalateOffer(messages, msg.id) && (
                               <AssistantEscalateOffer
                                 onEscalate={() => void onEscalate()}
@@ -461,9 +506,9 @@ export function AuthSupportChatBubble({
                       )}
                     </article>
                   ))}
-                  {loading && (
+                  {(loading || generalLoading) && (
                     <p className="mr-auto rounded-2xl bg-white px-3 py-2 text-xs text-[#717171] shadow-sm">
-                      Mengetik...
+                      {generalLoading ? "Mencari di internet…" : "Mengetik..."}
                     </p>
                   )}
                 </div>

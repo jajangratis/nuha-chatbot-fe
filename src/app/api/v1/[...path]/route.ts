@@ -68,8 +68,12 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
 
     return NextResponse.json(payload, { status: upstream.status });
   } catch (error) {
-    const message =
+    const detail =
       error instanceof Error ? error.message : "Gagal menghubungi Support API.";
+    const message =
+      detail.includes("ECONNREFUSED") || detail.includes("fetch failed")
+        ? `Backend tidak terjangkau di ${SUPPORT_API_BASE}. Pastikan chatbot-nuha jalan (nodemon) di port yang sama.`
+        : detail;
 
     return NextResponse.json({ error: message }, { status: 502 });
   }

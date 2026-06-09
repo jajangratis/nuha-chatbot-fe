@@ -7,6 +7,12 @@ import {
   AssistantEscalateOffer,
   shouldShowEscalateOffer,
 } from "@/components/AssistantEscalateOffer";
+import {
+  AssistantFallbackOffer,
+  GeneralWebAnswerBadge,
+  getAssistantAnswerMode,
+  shouldShowFallbackOffer,
+} from "@/components/AssistantFallbackOffer";
 import { BetaBadge } from "@/components/BetaBadge";
 import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
@@ -24,6 +30,7 @@ import {
   loadStoredGuestSession,
   saveStoredGuestSession,
   sendSessionMessage,
+  sendSessionGeneralReply,
   uploadSessionMessage,
   escalateSession,
   type Hospital,
@@ -37,6 +44,7 @@ type UiMessage = {
   content: string;
   read_at?: string | null;
   metadata?: unknown;
+  answerMode?: string;
   meta?: {
     sources?: unknown[];
     retrievalMs?: number;
@@ -48,6 +56,34 @@ function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+type GuestBootstrap = {
+  stored: StoredGuestSession | null;
+  phase: "intake" | "chat";
+  guestName: string;
+  hospitalCode: string | null;
+  needsResume: boolean;
+};
+
+function getInitialGuestBootstrap(): GuestBootstrap {
+  const saved = loadStoredGuestSession();
+  if (!saved) {
+    return {
+      stored: null,
+      phase: "intake",
+      guestName: "",
+      hospitalCode: null,
+      needsResume: false,
+    };
+  }
+  return {
+    stored: saved,
+    phase: "chat",
+    guestName: saved.guestName ?? "",
+    hospitalCode: saved.hospital?.code ?? null,
+    needsResume: true,
+  };
+}
+
 function toUiMessage(msg: SupportMessage): UiMessage {
   const role =
     msg.role === "user" ? "user" : msg.role === "system" ? "system" : "assistant";
@@ -57,6 +93,7 @@ function toUiMessage(msg: SupportMessage): UiMessage {
     content: msg.content,
     read_at: msg.read_at,
     metadata: msg.metadata,
+    answerMode: getAssistantAnswerMode(msg.metadata),
     meta:
       msg.role === "assistant" && msg.metadata
         ? {
@@ -69,11 +106,13 @@ function toUiMessage(msg: SupportMessage): UiMessage {
 }
 
 export function GuestSupportChat() {
-  const [open, setOpen] = useState(false);
-  const [phase, setPhase] = useState<"intake" | "chat">("intake");
-  const [stored, setStored] = useState<StoredGuestSession | null>(null);
+  const [guestBootstrap] = useState(getInitialGuestBootstrap);
 
-  const [guestName, setGuestName] = useState("");
+  const [open, setOpen] = useState(false);
+  const [phase, setPhase] = useState<"intake" | "chat">(guestBootstrap.phase);
+  const [stored, setStored] = useState<StoredGuestSession | null>(guestBootstrap.stored);
+
+  const [guestName, setGuestName] = useState(guestBootstrap.guestName);
   const [hospitalMode, setHospitalMode] = useState<"master" | "custom">("master");
   const [hospitalId, setHospitalId] = useState("");
   const [customHospitalName, setCustomHospitalName] = useState("");
@@ -84,30 +123,22 @@ export function GuestSupportChat() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resuming, setResuming] = useState(guestBootstrap.needsResume);
   const [intakeLoading, setIntakeLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hospitalCode, setHospitalCode] = useState<string | null>(null);
+  const [hospitalCode, setHospitalCode] = useState<string | null>(guestBootstrap.hospitalCode);
   const [idleWarning, setIdleWarning] = useState(false);
   const [idleMinutes, setIdleMinutes] = useState<number | null>(null);
   const [sessionClosed, setSessionClosed] = useState(false);
   const [sessionStatus, setSessionStatus] = useState("open_ai");
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [escalating, setEscalating] = useState(false);
+  const [generalLoading, setGeneralLoading] = useState(false);
 
   const listRef = useRef<HTMLDivElement>(null);
   const knownMessageIds = useRef<Set<string>>(new Set());
   const { onScroll: onChatScroll, forceScrollNext } = useChatScrollPin(listRef, messages);
   const pageVisible = usePageVisible();
-
-  useEffect(() => {
-    const saved = loadStoredGuestSession();
-    if (saved) {
-      setStored(saved);
-      setPhase("chat");
-      setHospitalCode(saved.hospital?.code ?? null);
-      setGuestName(saved.guestName ?? "");
-    }
-  }, []);
 
   useEffect(() => {
     if (phase !== "intake" || !open) return;
@@ -116,59 +147,64 @@ export function GuestSupportChat() {
       .catch(() => setHospitals([]));
   }, [phase, open, hospitalSearch]);
 
-  const resumeSession = useCallback(async (session: StoredGuestSession) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const status = await fetchSession(session.sessionId, session.guestSessionToken);
-      if (status.isClosed) {
-        setSessionClosed(true);
-        clearStoredGuestSession();
-        setPhase("intake");
-        setStored(null);
-        setError("Sesi sebelumnya telah ditutup. Silakan mulai sesi baru.");
-        return;
-      }
-
-      const data = await fetchSessionMessages(
-        session.sessionId,
-        session.guestSessionToken,
-      );
-      setIdleWarning(data.idleWarning);
-      setIdleMinutes(data.idleMinutesRemaining);
-      forceScrollNext();
-      setMessages(
-        data.messages.length > 0
-          ? data.messages.map(toUiMessage)
-          : [
-              {
-                id: "welcome",
-                role: "assistant",
-                content:
-                  "Halo! Saya asisten Nuha Care. Tanyakan seputar produk Nuha, HRIS, EMR, atau operasional rumah sakit.",
-              },
-            ],
-      );
-      setSessionStatus(data.session.status);
-      setQueuePosition(
-        (data.session as { queue_position?: number }).queue_position ?? null,
-      );
-      setPhase("chat");
-    } catch (err) {
-      clearStoredGuestSession();
-      setStored(null);
-      setPhase("intake");
-      setError(err instanceof Error ? err.message : "Gagal memuat sesi.");
-    } finally {
-      setLoading(false);
-    }
-  }, [forceScrollNext]);
-
   useEffect(() => {
-    if (stored && phase === "chat" && messages.length === 0) {
-      void resumeSession(stored);
-    }
-  }, [stored, phase, messages.length, resumeSession]);
+    if (!resuming || !stored) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const status = await fetchSession(stored.sessionId, stored.guestSessionToken);
+        if (cancelled) return;
+
+        if (status.isClosed) {
+          setSessionClosed(true);
+          clearStoredGuestSession();
+          setPhase("intake");
+          setStored(null);
+          setError("Sesi sebelumnya telah ditutup. Silakan mulai sesi baru.");
+          return;
+        }
+
+        const data = await fetchSessionMessages(
+          stored.sessionId,
+          stored.guestSessionToken,
+        );
+        if (cancelled) return;
+
+        setIdleWarning(data.idleWarning);
+        setIdleMinutes(data.idleMinutesRemaining);
+        setMessages(
+          data.messages.length > 0
+            ? data.messages.map(toUiMessage)
+            : [
+                {
+                  id: "welcome",
+                  role: "assistant",
+                  content:
+                    "Halo! Saya asisten Nuha Care. Tanyakan seputar produk Nuha, HRIS, EMR, atau operasional rumah sakit.",
+                },
+              ],
+        );
+        setSessionStatus(data.session.status);
+        setQueuePosition(
+          (data.session as { queue_position?: number }).queue_position ?? null,
+        );
+        forceScrollNext();
+      } catch (err) {
+        if (cancelled) return;
+        clearStoredGuestSession();
+        setStored(null);
+        setPhase("intake");
+        setError(err instanceof Error ? err.message : "Gagal memuat sesi.");
+      } finally {
+        if (!cancelled) setResuming(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resuming, stored, forceScrollNext]);
 
   const refreshSession = useCallback(
     async (withNotify = false) => {
@@ -368,6 +404,30 @@ export function GuestSupportChat() {
     void onSendMessage(text, files);
   };
 
+  const onGeneralSearch = async (query: string) => {
+    if (!stored || generalLoading || loading) return;
+    setGeneralLoading(true);
+    setError(null);
+    forceScrollNext();
+    try {
+      const result = await sendSessionGeneralReply(
+        stored.sessionId,
+        stored.guestSessionToken,
+        query,
+      );
+      setIdleWarning(result.idleWarning ?? false);
+      setIdleMinutes(result.idleMinutesRemaining ?? null);
+      if (result.assistantMessage) {
+        setMessages((prev) => [...prev, toUiMessage(result.assistantMessage)]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal mencari jawaban umum.");
+    } finally {
+      setGeneralLoading(false);
+      forceScrollNext();
+    }
+  };
+
   const onEscalate = async () => {
     if (!stored || escalating) return;
     setEscalating(true);
@@ -561,6 +621,7 @@ export function GuestSupportChat() {
                     >
                       {msg.role === "assistant" ? (
                         <>
+                          {msg.answerMode === "general_web" && <GeneralWebAnswerBadge />}
                           <ChatMarkdown content={msg.content} />
                           <MessageAttachments
                             metadata={msg.metadata}
@@ -568,6 +629,20 @@ export function GuestSupportChat() {
                           />
                           {sessionStatus === "open_ai" &&
                             !sessionClosed &&
+                            shouldShowFallbackOffer(messages, msg.id, msg.answerMode) && (
+                              <AssistantFallbackOffer
+                                messages={messages}
+                                assistantMessageId={msg.id}
+                                onEscalate={() => void onEscalate()}
+                                onGeneralSearch={(q) => void onGeneralSearch(q)}
+                                escalating={escalating}
+                                generalLoading={generalLoading}
+                                disabled={loading}
+                              />
+                            )}
+                          {sessionStatus === "open_ai" &&
+                            !sessionClosed &&
+                            msg.answerMode !== "out_of_scope" &&
                             shouldShowEscalateOffer(messages, msg.id) && (
                               <AssistantEscalateOffer
                                 onEscalate={() => void onEscalate()}
@@ -593,9 +668,13 @@ export function GuestSupportChat() {
                       )}
                     </article>
                   ))}
-                  {loading && (
+                  {(loading || generalLoading || resuming) && (
                     <p className="mr-auto rounded-2xl bg-white px-3 py-2 text-xs text-[#717171] shadow-sm">
-                      Mengetik...
+                      {resuming
+                        ? "Memuat sesi…"
+                        : generalLoading
+                          ? "Mencari di internet…"
+                          : "Mengetik..."}
                     </p>
                   )}
                 </div>
@@ -627,8 +706,8 @@ export function GuestSupportChat() {
                     value={input}
                     onChange={setInput}
                     onSend={onComposerSend}
-                    disabled={sessionClosed}
-                    loading={loading}
+                    disabled={sessionClosed || resuming}
+                    loading={loading || resuming}
                     placeholder="Ketik pertanyaan Anda..."
                     compact
                   />

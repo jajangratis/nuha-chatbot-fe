@@ -7,6 +7,12 @@ import {
   AssistantEscalateOffer,
   shouldShowEscalateOffer,
 } from "@/components/AssistantEscalateOffer";
+import {
+  AssistantFallbackOffer,
+  GeneralWebAnswerBadge,
+  getAssistantAnswerMode,
+  shouldShowFallbackOffer,
+} from "@/components/AssistantFallbackOffer";
 import { AuthHospitalPickPanel } from "@/components/AuthHospitalPickPanel";
 import { ChatComposer } from "@/components/ChatComposer";
 import { ChatMarkdown } from "@/components/ChatMarkdown";
@@ -27,6 +33,7 @@ import {
   fetchAuthSessionMessages,
   listAuthSessions,
   sendAuthSessionMessage,
+  sendAuthSessionGeneralReply,
   uploadAuthSessionMessage,
 } from "@/lib/support-api-auth";
 import type { SupportMessage, SupportSession } from "@/lib/support-api";
@@ -38,6 +45,7 @@ type UiMessage = {
   content: string;
   read_at?: string | null;
   metadata?: unknown;
+  answerMode?: string;
 };
 
 function toUiMessage(msg: SupportMessage): UiMessage {
@@ -53,6 +61,7 @@ function toUiMessage(msg: SupportMessage): UiMessage {
     content: msg.content,
     read_at: msg.read_at,
     metadata: msg.metadata,
+    answerMode: getAssistantAnswerMode(msg.metadata),
   };
 }
 
@@ -73,6 +82,7 @@ export default function SupportPage() {
   const [sessionStatus, setSessionStatus] = useState("open_ai");
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [escalating, setEscalating] = useState(false);
+  const [generalLoading, setGeneralLoading] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -202,6 +212,25 @@ export default function SupportPage() {
       setError(err instanceof Error ? err.message : "Gagal membuat sesi.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onGeneralSearch = async (query: string) => {
+    if (!activeSessionId || generalLoading || loading || sessionEnded) return;
+    setGeneralLoading(true);
+    setError(null);
+    forceScrollNext();
+    try {
+      const result = await sendAuthSessionGeneralReply(activeSessionId, query);
+      if (result.assistantMessage) {
+        setMessages((prev) => [...prev, toUiMessage(result.assistantMessage)]);
+      }
+      applySessionMeta(result.session);
+      forceScrollNext();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal mencari jawaban umum.");
+    } finally {
+      setGeneralLoading(false);
     }
   };
 
@@ -397,10 +426,25 @@ export default function SupportPage() {
                   >
                     {msg.role === "assistant" ? (
                       <>
+                        {msg.answerMode === "general_web" && <GeneralWebAnswerBadge />}
                         <ChatMarkdown content={msg.content} />
                         <MessageAttachments metadata={msg.metadata} />
                         {sessionStatus === "open_ai" &&
                           !sessionEnded &&
+                          shouldShowFallbackOffer(messages, msg.id, msg.answerMode) && (
+                            <AssistantFallbackOffer
+                              messages={messages}
+                              assistantMessageId={msg.id}
+                              onEscalate={() => void onEscalate()}
+                              onGeneralSearch={(q) => void onGeneralSearch(q)}
+                              escalating={escalating}
+                              generalLoading={generalLoading}
+                              disabled={loading}
+                            />
+                          )}
+                        {sessionStatus === "open_ai" &&
+                          !sessionEnded &&
+                          msg.answerMode !== "out_of_scope" &&
                           shouldShowEscalateOffer(messages, msg.id) && (
                             <AssistantEscalateOffer
                               onEscalate={() => void onEscalate()}
@@ -422,9 +466,13 @@ export default function SupportPage() {
                     )}
                   </article>
                 ))}
-                {(loading || escalating) && (
+                {(loading || escalating || generalLoading) && (
                   <p className="text-xs text-[#717171]">
-                    {escalating ? "Memasukkan antrian…" : "Mengetik..."}
+                    {escalating
+                      ? "Memasukkan antrian…"
+                      : generalLoading
+                        ? "Mencari di internet…"
+                        : "Mengetik..."}
                   </p>
                 )}
               </div>

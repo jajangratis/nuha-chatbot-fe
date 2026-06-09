@@ -202,6 +202,32 @@ export async function sendSessionMessage(
   });
 }
 
+export type SessionGeneralReplyResult = {
+  assistantMessage: SupportMessage;
+  session: SupportSession;
+  idleWarning?: boolean;
+  idleMinutesRemaining?: number | null;
+  general?: {
+    sources?: { url: string; title?: string; snippet?: string }[];
+    answerMode?: string;
+  };
+};
+
+export async function sendSessionGeneralReply(
+  sessionId: string,
+  guestToken: string,
+  query: string,
+) {
+  return supportFetch<SessionGeneralReplyResult>(
+    `sessions/${sessionId}/messages/general`,
+    {
+      method: "POST",
+      guestToken,
+      body: JSON.stringify({ query }),
+    },
+  );
+}
+
 export async function uploadSessionMessage(
   sessionId: string,
   guestToken: string,

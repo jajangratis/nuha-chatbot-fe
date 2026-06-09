@@ -85,6 +85,17 @@ export async function sendAuthSessionMessage(sessionId: string, message: string)
   });
 }
 
+export async function sendAuthSessionGeneralReply(sessionId: string, query: string) {
+  return authedSupportFetch<{
+    assistantMessage: SupportMessage;
+    session: SupportSession;
+    general?: { sources?: unknown[]; answerMode?: string };
+  }>(`sessions/${sessionId}/messages/general`, {
+    method: "POST",
+    body: JSON.stringify({ query }),
+  });
+}
+
 export async function uploadAuthSessionMessage(
   sessionId: string,
   message: string,
