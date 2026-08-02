@@ -1,0 +1,46 @@
+/* Clone overrides — nuha-chatbot-fe */
+.nuha-clone-root {
+  isolation: isolate;
+  font-family: var(--font-montserrat), Montserrat, Arial, sans-serif;
+}
+.nuha-clone-root a[href^="https://nuha.care"] {
+  pointer-events: auto;
+}
+.nuha-clone-root [data-slot="carousel"] {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+.nuha-clone-root [data-slot="carousel-content"] > .flex {
+  scroll-snap-align: start;
+}
+
+/* Desktop nav dropdown — hover seperti nuha.care */
+.nuha-clone-root li.nuha-nav-dropdown-wrap {
+  position: relative;
+}
+
+.nuha-clone-root li.nuha-nav-dropdown-wrap:hover > .nuha-nav-dropdown,
+.nuha-clone-root li.nuha-nav-dropdown-wrap:focus-within > .nuha-nav-dropdown {
+  visibility: visible;
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.nuha-clone-root
+  li.nuha-nav-dropdown-wrap:hover
+  [data-slot="navigation-menu-trigger"]
+  svg.lucide-chevron-down,
+.nuha-clone-root
+  li.nuha-nav-dropdown-wrap:focus-within
+  [data-slot="navigation-menu-trigger"]
+  svg.lucide-chevron-down {
+  transform: rotate(180deg);
+}
+
+.nuha-clone-root .nuha-nav-dropdown-link {
+  text-decoration: none;
+}
+
+.nuha-clone-root .nuha-nav-item-icon {
+  border-radius: 0.5rem;
+}
